@@ -2,7 +2,6 @@
 Module which contain bucket operations like create, delete, list, status and update
 """
 
-import json
 import logging
 
 from framework import config
@@ -13,7 +12,7 @@ import noobaa_sa.exceptions as e
 log = logging.getLogger(__name__)
 
 
-class BucketManager:
+class BucketOperation:
     """
     Bucket operations
     """
@@ -28,20 +27,23 @@ class BucketManager:
         self.unwanted_log = "2>/dev/null"
         self.conn = SSHConnection().connection
 
-    def create(self, account_name, bucket_name, config_root=None):
+    def createBucket(self, account_name, bucket_name, config_root=None):
         """
         Create bucket using CLI
 
         Args:
+            config_root (str): Path to config root
             account_name: User name
             bucket_name: Name of the bucket
-            config_root (str): Path to config root
         """
+        unwanted_log = "2>/dev/null"
+        base_cmd = f"sudo /usr/local/noobaa-core/bin/node {self.manage_nsfs}"
         if config_root is None:
             config_root = self.config_root
         log.info("Gather user info before creating bucket")
         cmd = f"{self.base_cmd} account status --config_root {config_root} --name {account_name} {self.unwanted_log}"
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        log.info(retcode)
         if retcode != 0:
             raise e.AccountStatusFailed(f"Failed to get status of account {stderr}")
         log.info(stdout)
@@ -50,7 +52,7 @@ class BucketManager:
         bucket_path = account_info["response"]["reply"]["nsfs_account_config"][
             "new_buckets_path"
         ]
-        cmd = f"{self.base_cmd} bucket add --config_root {config_root} --name {bucket_name} --email {account_email} --path {bucket_path} {self.unwanted_log}"
+        cmd = f"{base_cmd} bucket add --config_root {config_root} --name {bucket_name} --email {account_email} --path {bucket_path} {unwanted_log}"
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise e.BucketCreationFailed(f"Failed to create bucket {stderr}")
@@ -62,6 +64,7 @@ class BucketManager:
 
         Args:
             config_root (str): Path to config root
+
         """
         if config_root is None:
             config_root = self.config_root
@@ -70,19 +73,16 @@ class BucketManager:
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise e.BucketListFailed(f"Listing of buckets failed with error {stderr}")
-        bucket_ls = json.loads(stdout)
-        bucket_ls = bucket_ls["response"]["reply"]
-        bucket_list = [item["name"] for item in bucket_ls]
-        log.info(bucket_list)
-        return bucket_list
+        log.info(stdout)
 
     def delete(self, bucket_name, config_root=None):
         """
         Bucket Deletion
 
         Args:
-            bucket_name (str): Bucket to be deleted
             config_root (str): Path to config root
+            bucket_name (str): Bucket to be deleted
+
         """
         if config_root is None:
             config_root = self.config_root
@@ -91,6 +91,7 @@ class BucketManager:
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise e.BucketDeletionFailed(f"Deleting bucket failed with error {stderr}")
+
         log.info(stdout)
         log.info("Bucket deleted successfully")
 

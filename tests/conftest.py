@@ -5,6 +5,7 @@ import uuid
 from common_ci_utils.command_runner import exec_cmd
 from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
+from noobaa_sa.bucket import BucketOperation
 
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,12 @@ def bucket_manager(request):
 
     request.addfinalizer(bucket_cleanup)
     return bucket_manager
+
+
+@pytest.fixture
+def bucket_manager():
+    bucket_factory = BucketOperation()
+    return bucket_factory
 
 
 @pytest.fixture
