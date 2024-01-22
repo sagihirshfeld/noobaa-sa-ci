@@ -9,7 +9,6 @@ from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
 from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
-from noobaa_sa.bucket import BucketOperation
 from framework import config
 from noobaa_sa.s3_client import S3Client
 
@@ -34,12 +33,7 @@ def bucket_manager(request):
     return bucket_manager
 
 
-@pytest.fixture
-def bucket_manager():
-    bucket_factory = BucketOperation()
-    return bucket_factory
-
-
+# TODO: Add descriptibe error handling and logging
 @pytest.fixture(scope="session")
 def setup_nsfs_server_tls_certificate():
     """
@@ -50,6 +44,7 @@ def setup_nsfs_server_tls_certificate():
         str: The path to the downloaded certificate file.
     """
 
+    # TODO: rename function
     def implementation(config_root=config.ENV_DATA["config_root"]):
         """
         Configure the NSFS server TLS certification and download the certificate
@@ -67,7 +62,7 @@ def setup_nsfs_server_tls_certificate():
         config_root_path = (
             config_root.split("~/")[1] if config_root.startswith("~/") else config_root
         )
-        remote_credentials_dir = f"{config_root_path}/credentials"
+        remote_credentials_dir = f"{config_root_path}/certificates"
         conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
 
         # Create the TLS key
@@ -104,25 +99,6 @@ def setup_nsfs_server_tls_certificate():
             "-extfile /tmp/openssl_san.cnf "
             "-extensions req_ext "
         )
-
-        # create_tls_csr_cmd = (
-        #     "sudo openssl req -new "
-        #     f"-key {remote_credentials_dir}/tls.key "
-        #     f"-out {remote_credentials_dir}/tls.csr "
-        #     "-config /tmp/openssl_san.cnf "
-        #     "-subj '/CN=localhost' "
-        # )
-        # conn.exec_cmd(create_tls_csr_cmd)
-
-        # create_tls_crt_cmd = (
-        #     "sudo openssl x509 -req -days 365 "
-        #     f"-in {remote_credentials_dir}/tls.csr "
-        #     f"-signkey {remote_credentials_dir}/tls.key "
-        #     f"-out {remote_credentials_dir}/tls.crt "
-        #     "-extfile /tmp/openssl_san.cnf "
-        #     "-extensions req_ext "
-        # )
-        # conn.exec_cmd(create_tls_crt_cmd)
 
         # Restart the NSFS service to apply the new key and certificate
         conn.exec_cmd(f"sudo systemctl restart {constants.NSFS_SERVICE_NAME}")
