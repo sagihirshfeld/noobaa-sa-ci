@@ -4,14 +4,14 @@ Module to connect to remote host
 
 import logging
 
-from common_ci_utils.connection import Connection
 from framework import config
+from framework.extended_connection import ExtendedConnection as Connection
 from paramiko.auth_handler import AuthenticationException, SSHException
 
 log = logging.getLogger(__name__)
 
 
-class SSHConnection:
+class SSHConnectionManager:
     """
     A class that connects to remote host
     """
@@ -20,7 +20,7 @@ class SSHConnection:
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(SSHConnection, cls).__new__(cls)
+            cls._instance = super(SSHConnectionManager, cls).__new__(cls)
         return cls._instance
 
     def __init__(self):
@@ -85,4 +85,4 @@ class SSHConnection:
 
 def pytest_sessionfinish(session, exitstatus):
     # Close the SSH connection at the end of the pytest session
-    SSHConnection.close_connection()
+    SSHConnectionManager.close_connection()

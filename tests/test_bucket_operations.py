@@ -1,7 +1,7 @@
 import logging
 import os
 
-from framework.connection import SSHConnection
+from framework.ssh_connection_manager import SSHConnectionManager
 
 log = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ def test_bucket_operations(
     account_manager, bucket_manager, unique_resource_name, random_hex
 ):
     # Create SSH connection
-    conn = SSHConnection().connection
+    conn = SSHConnectionManager().connection
     # Bucket operations
     account_name = unique_resource_name(prefix="account")
     access_key = random_hex()

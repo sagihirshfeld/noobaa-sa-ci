@@ -49,7 +49,7 @@ def main(argv=None):
     arguments.extend(
         [
             "-p",
-            "framework.connection",
+            "framework.ssh_connection_manager",
             "-p",
             "framework.customizations.custom_cmd_line_arguments",
         ]

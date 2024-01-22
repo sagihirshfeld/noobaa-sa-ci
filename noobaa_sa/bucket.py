@@ -5,7 +5,7 @@ Module which contain bucket operations like create, delete, list, status and upd
 import logging
 
 from framework import config
-from framework.connection import SSHConnection
+from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa.defaults import MANAGE_NSFS
 import noobaa_sa.exceptions as e
 
@@ -25,7 +25,7 @@ class BucketOperation:
         self.config_root = config.ENV_DATA["config_root"]
         self.base_cmd = f"sudo /usr/local/noobaa-core/bin/node {self.manage_nsfs}"
         self.unwanted_log = "2>/dev/null"
-        self.conn = SSHConnection().connection
+        self.conn = SSHConnectionManager().connection
 
     def createBucket(self, account_name, bucket_name, config_root=None):
         """
