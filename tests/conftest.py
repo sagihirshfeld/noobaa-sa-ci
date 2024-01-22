@@ -9,6 +9,7 @@ from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
 from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
+from noobaa_sa.bucket import BucketOperation
 from framework import config
 from noobaa_sa.s3_client import S3Client
 
@@ -33,6 +34,7 @@ def bucket_manager(request):
     return bucket_manager
 
 
+# TODO: Add descriptibe error handling and logging
 @pytest.fixture(scope="session")
 def setup_nsfs_server_tls_certificate():
     """
@@ -43,6 +45,7 @@ def setup_nsfs_server_tls_certificate():
         str: The path to the downloaded certificate file.
     """
 
+    # TODO: rename function
     def implementation(config_root=config.ENV_DATA["config_root"]):
         """
         Configure the NSFS server TLS certification and download the certificate
@@ -60,7 +63,7 @@ def setup_nsfs_server_tls_certificate():
         config_root_path = (
             config_root.split("~/")[1] if config_root.startswith("~/") else config_root
         )
-        remote_credentials_dir = f"{config_root_path}/credentials"
+        remote_credentials_dir = f"{config_root_path}/certificates"
         conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
 
         # Create the TLS key
