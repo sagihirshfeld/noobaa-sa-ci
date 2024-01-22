@@ -1,11 +1,13 @@
 import logging
 
 from framework import config
+from framework.ssh_connection_manager import SSHConnectionManager
 
 log = logging.getLogger(__name__)
 
 
 def test_account_operations(account_manager, unique_resource_name, random_hex):
+    conn = SSHConnectionManager().connection
     # account operations
     account_name = unique_resource_name(prefix="account")
     access_key = random_hex()
