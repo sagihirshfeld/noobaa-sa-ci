@@ -17,6 +17,7 @@ setup(
         "pynpm",
         "pyyaml",
         "requests",
+        "boto3",
     ],
     entry_points={
         "console_scripts": [

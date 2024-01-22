@@ -1,0 +1,16 @@
+[req]
+req_extensions = req_ext
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]
+CN = localhost
+
+[req_ext]
+# The subjectAltName line directly specifies the domain names and IP addresses that the certificate should be valid for.
+# This ensures the SSL certificate matches the domain or IP used in your S3 command.
+
+# Example:
+# 'DNS:localhost' makes the certificate valid when accessing S3 storage via 'localhost'.
+# 'DNS:nsfs-domain-name-example.com' adds a specific domain to the certificate. Replace 'nsfs-domain-name-example.com' with your actual domain.
+# 'IP:<nsfs-server-ip>' includes an IP address. Replace '<nsfs-server-ip>' with the actual IP address of your S3 server.
+subjectAltName = DNS:localhost,IP:{{nsfs_server_ip}}
