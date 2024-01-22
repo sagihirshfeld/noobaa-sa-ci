@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from common_ci_utils.templating import Templating
 
 from framework import config
-from framework.connection import SSHConnection
+from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa.defaults import MANAGE_NSFS
 from noobaa_sa.exceptions import (
     AccountCreationFailed,
@@ -38,7 +38,7 @@ class Account(ABC):
         self.account_json = account_json
         self.manage_nsfs = MANAGE_NSFS
         self.config_root = config.ENV_DATA["config_root"]
-        self.conn = SSHConnection().connection
+        self.conn = SSHConnectionManager().connection
 
     @abstractmethod
     def create(self):
