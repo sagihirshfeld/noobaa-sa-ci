@@ -1,8 +1,7 @@
 {
     "name": "{{account_name}}",
     "email": "{{account_email}}",
-    "has_login": "false",
-    "has_s3_access": "true",
+    "creation_date": "{{creation_date}}",
     "allow_bucket_creation": "true",
     "access_keys": [
         {
@@ -14,6 +13,6 @@
         "uid": 0,
         "gid": 0,
         "new_buckets_path": "{{bucket_path}}",
-        "nsfs_only": "true"
+        "fs_backend": "{{fs_backend}}"
     }
 }
