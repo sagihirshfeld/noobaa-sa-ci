@@ -5,6 +5,7 @@ Module which contain account operations like create, delete, list and update
 import logging
 import os
 import tempfile
+from datetime import datetime
 from abc import ABC, abstractmethod
 
 from common_ci_utils.templating import Templating
@@ -12,6 +13,7 @@ from common_ci_utils.templating import Templating
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa.defaults import MANAGE_NSFS
+from noobaa_sa import constants
 from noobaa_sa.exceptions import (
     AccountCreationFailed,
     AccountDeletionFailed,
@@ -58,7 +60,14 @@ class NSFSAccount(Account):
     Account operations for NSFS Deployment type
     """
 
-    def create(self, account_name, access_key, secret_key, config_root=None):
+    def create(
+        self,
+        account_name,
+        access_key,
+        secret_key,
+        config_root=None,
+        fs_backend=constants.DEFAULT_FS_BACKEND,
+    ):
         """
         Account creation using file
 
@@ -82,9 +91,11 @@ class NSFSAccount(Account):
         account_data = {
             "account_name": account_name,
             "account_email": account_email,
+            "creation_date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "access_key": access_key,
             "secret_key": secret_key,
             "bucket_path": bucket_path,
+            "fs_backend": fs_backend,
         }
         account_data_full = templating.render_template(account_template, account_data)
         log.info(f"account content: {account_data_full}")
@@ -96,6 +107,8 @@ class NSFSAccount(Account):
             account_file.write(account_data_full)
 
         # upload to noobaa-sa host
+        self.conn.exec_cmd(f"sudo mkdir -p {os.path.dirname(account_file.name)}")
+        self.conn.exec_cmd(f"sudo chmod a+w {os.path.dirname(account_file.name)}")
         self.conn.upload_file(account_file.name, account_file.name)
 
         if config_root is None:
@@ -106,7 +119,7 @@ class NSFSAccount(Account):
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountCreationFailed(
-                f"Creation of account failed with error {stderr}"
+                f"Creation of account failed with error {stdout}"
             )
         log.info("Account created successfully")
 
