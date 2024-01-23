@@ -20,7 +20,8 @@ class S3Client:
         self.secret_key = secret_key
         self.tls_crt_path = tls_crt_path
 
-        # Set the AWS_CA_BUNDLE environment variable
+        # Set the AWS_CA_BUNDLE environment variable in order to
+        # include the TLS certificate in the boto3 and AWS CLI calls
         if self.tls_crt_path:
             os.environ["AWS_CA_BUNDLE"] = tls_crt_path
 
@@ -91,8 +92,10 @@ class S3Client:
 
         """
         output = self.s3_client.list_objects(Bucket=bucket_name)
-        list_of_objs_metadata = output["Contents"]
-        return [obj["Key"] for obj in list_of_objs_metadata]
+        if "Contents" not in output:
+            return []
+        else:
+            return [obj["Key"] for obj in output["Contents"]]
 
     def put_object(self, bucket_name, object_key, object_data):
         """
@@ -124,7 +127,7 @@ class S3Client:
         Delete all the objects in an s3 path recursively
 
         """
-        self.exec_s3_cli_cmd(f"rm s3://{bucket_name}/{s3_path}")
+        self.exec_s3_cli_cmd(f"rm s3://{bucket_name}/{s3_path} --recursive")
 
     def get_object(self, bucket_name, object_key):
         """
@@ -135,7 +138,6 @@ class S3Client:
         # TODO
         """
         output = self.s3_client.get_object(Bucket=bucket_name, Key=object_key)
-
         # TODO: return the object data
 
     def write_random_objs_to_bucket(
@@ -163,9 +165,7 @@ class S3Client:
             for i in range(amount):
                 obj_name = f"obj_{i}"
                 obj_path = os.path.join(files_dir, obj_name)
-                exec_cmd(
-                    f"dd if=/dev/urandom of={obj_path} bs={obj_size} count=1 &> /dev/null"
-                )
+                exec_cmd(f"dd if=/dev/urandom of={obj_path} bs={obj_size} count=1")
                 written_objs.append(obj_name)
             log.info(
                 f"Generated the following objects under {files_dir}: {written_objs}"
@@ -183,3 +183,10 @@ class S3Client:
                 generate_and_upload_objects_using_local_dir(tmp_dir, prefix)
 
         return written_objs
+
+    def delete_all_objects_in_bucket(self, bucket_name):
+        """
+        Delete all objects in an S3 bucket
+
+        """
+        self.rm_recursive(bucket_name)
