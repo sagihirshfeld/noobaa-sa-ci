@@ -24,9 +24,13 @@ def test_basic_s3(
     2. Write objects to the bucket
     3. List the bucket's contents
     4. Read the objects from the bucket and verify data integrity
+    5. Delete the objects from the bucket
 
     """
-    SSHConnectionManager().connection
+    origin_dir, results_dir = tmp_directories_factory(
+        dirs_to_create=["origin", "result"]
+    )
+
     # 1. Create an account and a bucket
     # TODO: create support for default account / bucket creation without params
     account_name = unique_resource_name(prefix="account")
@@ -38,11 +42,8 @@ def test_basic_s3(
     bucket_name = unique_resource_name(prefix="bucket")
     bucket_manager.create(account_name, bucket_name)
 
+    # TODO: add support for passing an account object instead of these credentials
     s3_client = s3_client_factory(access_and_secret_keys_tuple=(access_key, secret_key))
-
-    origin_dir, results_dir = tmp_directories_factory(
-        dirs_to_create=["origin", "result"]
-    )
 
     # 2. Write objects to the bucket
     original_objs_names = s3_client.write_random_objs_to_bucket(
@@ -74,3 +75,9 @@ def test_basic_s3(
         assert (
             original_md5 == downloaded_md5
         ), "Downloaded object md5 hash does not match the original object"
+
+    # 5. Delete the objects from the bucket
+    s3_client.delete_all_objects_in_bucket(bucket_name)
+    assert (
+        len(s3_client.list_objects(bucket_name)) == 0
+    ), "Bucket is not empty after attempting to delete all objects"
