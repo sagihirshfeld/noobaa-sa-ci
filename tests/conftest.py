@@ -1,3 +1,4 @@
+import os
 import logging
 import tempfile
 import pytest
@@ -126,7 +127,11 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
     """
     tls_crt_path = setup_nsfs_server_tls_certificate()
 
-    def create_s3client(access_and_secret_keys_tuple=None, verify_tls=True):
+    def create_s3client(
+        access_and_secret_keys_tuple=None,
+        verify_tls=True,
+        endpoint_port=constants.DEFAULT_NSFS_PORT,
+    ):
         # Set the AWS access and secret keys
         access_key, secret_key = None, None
         if access_and_secret_keys_tuple is None:
@@ -138,11 +143,12 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
         else:
             access_key, secret_key = access_and_secret_keys_tuple
 
+        nb_sa_host_address = config.ENV_DATA["noobaa_sa_host"]
         return S3Client(
-            endpoint=config.ENV_DATA["cluster_path"],
+            endpoint=f"https://{nb_sa_host_address}:{endpoint_port}",
             access_key=access_key,
             secret_key=secret_key,
-            tsl_crt_path=tls_crt_path if verify_tls else None,
+            tls_crt_path=tls_crt_path if verify_tls else None,
         )
 
     return create_s3client
@@ -174,3 +180,42 @@ def random_hex(request):
         return stdout.decode("utf-8").strip()
 
     return _get_random_hex
+
+
+@pytest.fixture()
+def tmp_directories_factory(request, random_hex):
+    """
+    Factory to create temporary local testing directories, and cleanup after the test.
+
+    """
+    current_test_name = (
+        os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
+    )
+    tmp_testing_dirs_root = f"/tmp/{current_test_name}-{random_hex()[:5]}"
+    os.mkdir(tmp_testing_dirs_root)
+
+    def create_tmp_testing_dirs(dirs_to_create):
+        """
+        Create temporary local testing directories.
+
+        Args:
+            dirs_to_create (list): List of directories to create.
+
+        """
+        created_dirs_paths = []
+        for dir in dirs_to_create:
+            new_tmp_dir_path = f"{tmp_testing_dirs_root}/{dir}"
+            os.mkdir(new_tmp_dir_path)
+            created_dirs_paths.append(new_tmp_dir_path)
+
+        return created_dirs_paths
+
+    def cleanup():
+        """
+        Cleanup local test directories.
+
+        """
+        exec_cmd(f"rm -rf {tmp_testing_dirs_root}")
+
+    request.addfinalizer(cleanup)
+    return create_tmp_testing_dirs
