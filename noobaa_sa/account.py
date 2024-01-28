@@ -91,6 +91,7 @@ class NSFSAccount(Account):
         account_data = {
             "account_name": account_name,
             "account_email": account_email,
+            # creation_date is required due to https://bugzilla.redhat.com/show_bug.cgi?id=2260325
             "creation_date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "access_key": access_key,
             "secret_key": secret_key,
