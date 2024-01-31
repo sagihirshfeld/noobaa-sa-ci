@@ -19,6 +19,7 @@ from noobaa_sa.exceptions import (
     AccountDeletionFailed,
     AccountListFailed,
 )
+from utility.utils import get_noobaa_sa_host_home_path
 
 log = logging.getLogger(__name__)
 
@@ -76,9 +77,7 @@ class NSFSAccount(Account):
         """
         account_email = config.ENV_DATA["email"]
 
-        # get home directory on noobaa-sa host
-        cmd = "echo $HOME"
-        _, hd, _ = self.conn.exec_cmd(cmd)
+        hd = get_noobaa_sa_host_home_path()
         bucket_path = os.path.join(hd, f"fs_{account_name}")
 
         # create bucket path

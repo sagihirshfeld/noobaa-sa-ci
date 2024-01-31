@@ -1,11 +1,9 @@
 import os
-import tempfile
 import logging
 import hashlib
-from framework.ssh_connection_manager import SSHConnectionManager
-from common_ci_utils.command_runner import exec_cmd
 
 from framework import config
+from utility.utils import generate_random_hex, generate_unique_resource_name
 
 log = logging.getLogger(__name__)
 
@@ -14,8 +12,6 @@ def test_basic_s3(
     account_manager,
     bucket_manager,
     s3_client_factory,
-    unique_resource_name,
-    random_hex,
     tmp_directories_factory,
 ):
     """
@@ -33,13 +29,13 @@ def test_basic_s3(
 
     # 1. Create an account and a bucket
     # TODO: create support for default account / bucket creation without params
-    account_name = unique_resource_name(prefix="account")
-    access_key = random_hex()
-    secret_key = random_hex()
+    account_name = generate_unique_resource_name(prefix="account")
+    access_key = generate_random_hex()
+    secret_key = generate_random_hex()
     account_manager.create(account_name, access_key, secret_key)
 
     # TODO: make create_bucket return a bucket name instead of passing it as a param
-    bucket_name = unique_resource_name(prefix="bucket")
+    bucket_name = generate_unique_resource_name(prefix="bucket")
     bucket_manager.create(account_name, bucket_name)
 
     # TODO: add support for passing an account object instead of these credentials

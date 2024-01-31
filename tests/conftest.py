@@ -1,8 +1,6 @@
 import os
 import logging
-import tempfile
 import pytest
-import uuid
 
 from common_ci_utils.templating import Templating
 from common_ci_utils.command_runner import exec_cmd
@@ -12,6 +10,12 @@ from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
 from framework import config
 from noobaa_sa.s3_client import S3Client
+from utility.utils import (
+    get_noobaa_sa_host_home_path,
+    get_config_root_full_path,
+    generate_random_hex,
+    generate_unique_resource_name,
+)
 
 log = logging.getLogger(__name__)
 
@@ -134,9 +138,9 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
         # Set the AWS access and secret keys
         access_key, secret_key = None, None
         if access_and_secret_keys_tuple is None:
-            account_name = unique_resource_name(prefix="account")
-            access_key = random_hex()
-            secret_key = random_hex()
+            account_name = generate_unique_resource_name(prefix="account")
+            access_key = generate_random_hex()
+            secret_key = generate_random_hex()
             config_root = config.ENV_DATA["config_root"]
             account_manager.create(account_name, access_key, secret_key, config_root)
         else:
@@ -153,40 +157,13 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
     return create_s3client
 
 
-@pytest.fixture
-def unique_resource_name(request):
-    """
-    Generates a unique resource name with the given prefix
-    """
-
-    def _get_unique_name(prefix="resource"):
-        unique_id = str(uuid.uuid4()).split("-")[0]
-        return f"{prefix}-{unique_id}"
-
-    return _get_unique_name
-
-
-@pytest.fixture(scope="function")
-def random_hex(request):
-    """
-    Generates a random hexadecimal string.
-    """
-
-    def _get_random_hex():
-        cmd = "openssl rand -hex 20"
-        completed_process = exec_cmd(cmd)
-        stdout = completed_process.stdout
-        return stdout.decode("utf-8").strip()
-
-    return _get_random_hex
-
-
 @pytest.fixture()
-def tmp_directories_factory(request, random_hex):
+def tmp_directories_factory(request):
     """
     Factory to create temporary local testing directories, and cleanup after the test.
 
     """
+    random_hex = generate_random_hex()
     current_test_name = (
         os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
     )
