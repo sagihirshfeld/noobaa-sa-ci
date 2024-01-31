@@ -52,3 +52,20 @@ def generate_unique_resource_name(prefix="resource"):
     """
     unique_id = str(uuid.uuid4()).split("-")[0]
     return f"{prefix}-{unique_id}"
+
+
+def get_config_root_full_path():
+    """
+    Get the full path of the configuration root directory on the remote machine
+
+    Returns:
+        str: The full path of the configuration root directory on the remote machine
+
+    """
+    config_root = config.ENV_DATA["config_root"]
+
+    if config_root.startswith("~/") == False:
+        return config_root
+
+    config_root = config_root.split("~/")[1]
+    return f"{get_noobaa_sa_host_home_path()}/{config_root}"

@@ -10,12 +10,19 @@ from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
 from framework import config
 from noobaa_sa.s3_client import S3Client
+from noobaa_sa.exceptions import MissingFileOrDirectoryException
 from utility.utils import (
     get_noobaa_sa_host_home_path,
     get_config_root_full_path,
     generate_random_hex,
     generate_unique_resource_name,
 )
+from utility.nsfs_server_utils import (
+    restart_nsfs_service,
+    create_tls_key_and_cert,
+    set_nsfs_service_certs_dir,
+)
+
 
 log = logging.getLogger(__name__)
 
@@ -38,89 +45,40 @@ def bucket_manager(request):
     return bucket_manager
 
 
-# TODO: Add descriptibe error handling and logging
 @pytest.fixture(scope="session")
-def setup_nsfs_server_tls_certificate():
+def nsfs_server_tls_cert_path():
     """
-    Setup the NSFS server TLS certification and download the certificate in
-    a local file.
+    Configure the NSFS server TLS certification and download the certificate
+    in a local file.
+
+    Args:
+        config_root (str): The path to the configuration root directory.
 
     Returns:
         str: The path to the downloaded certificate file.
+
     """
+    conn = SSHConnectionManager().connection
+    config_root_path = get_config_root_full_path()
+    remote_credentials_dir = f"{config_root_path}/certificates"
 
-    # TODO: rename function
-    def implementation(config_root=config.ENV_DATA["config_root"]):
-        """
-        Configure the NSFS server TLS certification and download the certificate
-        in a local file.
+    # Create the TLS credentials and configure the NSFS service to use them
+    conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
+    remote_tls_crt_path = create_tls_key_and_cert(remote_credentials_dir)
+    set_nsfs_service_certs_dir(remote_credentials_dir)
+    restart_nsfs_service()
 
-        Args:
-            config_root (str): The path to the configuration root directory.
-
-        Returns:
-            str: The path to the downloaded certificate file.
-
-        """
-        conn = SSHConnectionManager().connection
-        # Omit the ~/ prefix if exists
-        config_root_path = (
-            config_root.split("~/")[1] if config_root.startswith("~/") else config_root
-        )
-        remote_credentials_dir = f"{config_root_path}/certificates"
-        conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
-
-        # Create the TLS key
-        conn.exec_cmd(
-            f"sudo openssl genpkey -algorithm RSA -out {remote_credentials_dir}/tls.key"
-        )
-
-        # Create a SAN (Subject Alternative Name) configuration file to use with the CSR
-        with tempfile.NamedTemporaryFile(mode="w+") as tmp_file:
-            templating = Templating(base_path=config.ENV_DATA["template_dir"])
-            account_template = "openssl_san.cnf"
-            account_data_full = templating.render_template(
-                account_template, data={"nsfs_server_ip": conn.host}
-            )
-            tmp_file.write(account_data_full)
-            tmp_file.flush()
-            conn.upload_file(tmp_file.name, "/tmp/openssl_san.cnf")
-
-        # Create a CSR (Certificate Signing Cequest) file
-        conn.exec_cmd(
-            "sudo openssl req -new "
-            f"-key {remote_credentials_dir}/tls.key "
-            f"-out {remote_credentials_dir}/tls.csr "
-            "-config /tmp/openssl_san.cnf "
-            "-subj '/CN=localhost' "
-        )
-
-        # Use the TLS key and CSR to create a self-signed certificate
-        conn.exec_cmd(
-            "sudo openssl x509 -req -days 365 "
-            f"-in {remote_credentials_dir}/tls.csr "
-            f"-signkey {remote_credentials_dir}/tls.key "
-            f"-out {remote_credentials_dir}/tls.crt "
-            "-extfile /tmp/openssl_san.cnf "
-            "-extensions req_ext "
-        )
-
-        # Restart the NSFS service to apply the new key and certificate
-        conn.exec_cmd(f"sudo systemctl restart {constants.NSFS_SERVICE_NAME}")
-
-        # Download the certificate to a local file
-        local_path = "/tmp/tls.crt"
-        conn.download_file(
-            remotepath=f"{remote_credentials_dir}/tls.crt",
-            localpath=local_path,
-        )
-        return local_path
-
-    return implementation
+    # Download the certificate to a local file
+    local_path = "/tmp/tls.crt"
+    conn.download_file(
+        remotepath=remote_tls_crt_path,
+        localpath=local_path,
+    )
+    return local_path
 
 
 @pytest.fixture
-def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
+def s3_client_factory(nsfs_server_tls_cert_path, account_manager):
     """
     Factory to create S3Client instances.
 
@@ -128,13 +86,24 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
         func: A function that creates S3Client instances.
 
     """
-    tls_crt_path = setup_nsfs_server_tls_certificate()
 
     def create_s3client(
         access_and_secret_keys_tuple=None,
         verify_tls=True,
         endpoint_port=constants.DEFAULT_NSFS_PORT,
     ):
+        """
+        Create an S3Client instance using the given credentials.
+
+        Args:
+            access_and_secret_keys_tuple (tuple): A tuple of access and secret keys.
+            verify_tls (bool): Whether to verify the TLS certificate.
+            endpoint_port (int): The port to use for the endpoint.
+
+        Returns:
+            S3Client: An S3Client instance.
+
+        """
         # Set the AWS access and secret keys
         access_key, secret_key = None, None
         if access_and_secret_keys_tuple is None:
@@ -151,7 +120,7 @@ def s3_client_factory(setup_nsfs_server_tls_certificate, account_manager):
             endpoint=f"https://{nb_sa_host_address}:{endpoint_port}",
             access_key=access_key,
             secret_key=secret_key,
-            tls_crt_path=tls_crt_path if verify_tls else None,
+            tls_crt_path=nsfs_server_tls_cert_path if verify_tls else None,
         )
 
     return create_s3client
