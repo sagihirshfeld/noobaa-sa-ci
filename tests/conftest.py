@@ -1,5 +1,6 @@
 import os
 import logging
+import tempfile
 import pytest
 
 from common_ci_utils.templating import Templating
@@ -12,10 +13,10 @@ from framework import config
 from noobaa_sa.s3_client import S3Client
 from noobaa_sa.exceptions import MissingFileOrDirectoryException
 from utility.utils import (
-    get_noobaa_sa_host_home_path,
     get_config_root_full_path,
     generate_random_hex,
     generate_unique_resource_name,
+    get_current_test_name,
 )
 from utility.nsfs_server_utils import (
     restart_nsfs_service,
@@ -46,10 +47,12 @@ def bucket_manager(request):
 
 
 @pytest.fixture(scope="session")
-def nsfs_server_tls_cert_path():
+def setup_nsfs_server_tls_cert():
     """
     Configure the NSFS server TLS certification and download the certificate
     in a local file.
+
+
 
     Args:
         config_root (str): The path to the configuration root directory.
@@ -69,16 +72,19 @@ def nsfs_server_tls_cert_path():
     restart_nsfs_service()
 
     # Download the certificate to a local file
-    local_path = "/tmp/tls.crt"
-    conn.download_file(
-        remotepath=remote_tls_crt_path,
-        localpath=local_path,
-    )
-    return local_path
+    with tempfile.NamedTemporaryFile(
+        prefix="tls_", suffix=".crt", delete=False
+    ) as local_tls_crt_file:
+        conn.download_file(
+            remotepath=remote_tls_crt_path,
+            localpath=local_tls_crt_file.name,
+        )
+
+    S3Client.static_tls_crt_path = local_tls_crt_file.name
 
 
 @pytest.fixture
-def s3_client_factory(nsfs_server_tls_cert_path, account_manager):
+def s3_client_factory(setup_nsfs_server_tls_cert, account_manager):
     """
     Factory to create S3Client instances.
 
@@ -88,9 +94,9 @@ def s3_client_factory(nsfs_server_tls_cert_path, account_manager):
     """
 
     def create_s3client(
+        endpoint_port=constants.DEFAULT_NSFS_PORT,
         access_and_secret_keys_tuple=None,
         verify_tls=True,
-        endpoint_port=constants.DEFAULT_NSFS_PORT,
     ):
         """
         Create an S3Client instance using the given credentials.
@@ -120,7 +126,7 @@ def s3_client_factory(nsfs_server_tls_cert_path, account_manager):
             endpoint=f"https://{nb_sa_host_address}:{endpoint_port}",
             access_key=access_key,
             secret_key=secret_key,
-            tls_crt_path=nsfs_server_tls_cert_path if verify_tls else None,
+            verify_tls=verify_tls,
         )
 
     return create_s3client
@@ -132,11 +138,9 @@ def tmp_directories_factory(request):
     Factory to create temporary local testing directories, and cleanup after the test.
 
     """
-    random_hex = generate_random_hex()
-    current_test_name = (
-        os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
-    )
-    tmp_testing_dirs_root = f"/tmp/{current_test_name}-{random_hex()[:5]}"
+    random_hex = generate_random_hex(5)
+    current_test_name = get_current_test_name()
+    tmp_testing_dirs_root = f"/tmp/{current_test_name}-{random_hex}"
     os.mkdir(tmp_testing_dirs_root)
 
     def create_tmp_testing_dirs(dirs_to_create):

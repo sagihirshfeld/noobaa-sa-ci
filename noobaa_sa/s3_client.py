@@ -2,35 +2,53 @@ import os
 import logging
 import tempfile
 import boto3
-from botocore.config import Config
 from common_ci_utils.command_runner import exec_cmd
+from noobaa_sa.exceptions import BucketCreationFailed
+from utility.utils import generate_unique_resource_name
 
 log = logging.getLogger(__name__)
 
 
+# TODO: Add robust exception handling to all the methods
 class S3Client:
     """
     A wrapper class for S3 operations using boto3 and the AWS CLI
 
+    The 'access_key' and 'secret_key' are set as read-only properties.
+    This allows to keep track of the buckets created by the specific account and
+    to delete only them if needed.
+
+    To use different credentials, instantiate a new S3Client object.
+
     """
 
-    def __init__(self, endpoint, access_key, secret_key, tls_crt_path=None):
+    static_tls_crt_path = ""
+
+    def __init__(self, endpoint, access_key, secret_key, verify_tls=True):
         self.endpoint = endpoint
-        self.access_key = access_key
-        self.secret_key = secret_key
-        self.tls_crt_path = tls_crt_path
+        self._access_key = access_key
+        self._secret_key = secret_key
+        self.verify_tls = verify_tls
 
         # Set the AWS_CA_BUNDLE environment variable in order to
         # include the TLS certificate in the boto3 and AWS CLI calls
-        if self.tls_crt_path:
-            os.environ["AWS_CA_BUNDLE"] = tls_crt_path
+        if self.verify_tls:
+            os.environ["AWS_CA_BUNDLE"] = S3Client.static_tls_crt_path
 
-        self.s3_client = boto3.client(
+        self._boto3_client = boto3.client(
             "s3",
             endpoint_url=self.endpoint,
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
         )
+
+    @property
+    def access_key(self):
+        return self._access_key
+
+    @property
+    def secret_key(self):
+        return self._secret_key
 
     def exec_s3_cli_cmd(self, cmd, api=False):
         """
@@ -54,8 +72,10 @@ class S3Client:
             f"--endpoint={self.endpoint} "
         )
 
-        if self.tls_crt_path:
-            base_command = f"AWS_CA_BUNDLE={self.tls_crt_path} " + base_command
+        if self.verify_tls:
+            base_command = (
+                f"AWS_CA_BUNDLE={S3Client.static_tls_crt_path} " + base_command
+            )
         else:
             base_command += " --no-verify-ssl"
 
@@ -65,33 +85,61 @@ class S3Client:
             raise Exception(f"Error while executing command: {output.stderr}")
         return output
 
-    def create_bucket(self, bucket_name):
+    def create_bucket(self, bucket_name=""):
         """
         Create a bucket in an S3 account using boto3
 
-        """
-        self.s3_client.create_bucket(Bucket=bucket_name)
+        Args:
+            bucket_name (str): The name of the bucket to create.
+                               If not specified, a random name will be generated.
 
-    def delete_bucket(self, bucket_name):
+        Returns:
+            str: The name of the created bucket
+
+        """
+        if bucket_name == "":
+            bucket_name = generate_unique_resource_name(prefix="bucket")
+        response = self._boto3_client.create_bucket(Bucket=bucket_name)
+        if "Location" not in response:
+            raise BucketCreationFailed(
+                f"Could not create bucket {bucket_name}. Response: {response}"
+            )
+        return bucket_name
+
+    def delete_bucket(self, bucket_name, empty_before_deletion=False):
         """
         Delete a bucket in an S3 account using boto3
+        If the bucket is not empty, it will not be deleted unless empty_bucket is set to True
+
+        Args:
+            bucket_name (str): The name of the bucket to delete
+            empty_before_deletion (bool): Whether to empty the bucket before attempting deletion
 
         """
-        self.s3_client.delete_bucket(Bucket=bucket_name)
+        if empty_before_deletion:
+            self.delete_all_objects_in_bucket(bucket_name)
+        self._boto3_client.delete_bucket(Bucket=bucket_name)
 
     def list_buckets(self):
         """
         List buckets in an S3 account using boto3
 
+        Returns:
+            list: A list of the names of the buckets
+
         """
-        return self.s3_client.list_buckets()
+        response = self._boto3_client.list_buckets()
+        return [bucket_data["Name"] for bucket_data in response["Buckets"]]
 
     def list_objects(self, bucket_name):
         """
         List objects in an S3 bucket using boto3
 
+        Returns:
+            list: A list of the names of the objects
+
         """
-        output = self.s3_client.list_objects(Bucket=bucket_name)
+        output = self._boto3_client.list_objects(Bucket=bucket_name)
         if "Contents" not in output:
             return []
         else:
@@ -102,7 +150,32 @@ class S3Client:
         Put an object in an S3 bucket using boto3
 
         """
-        self.s3_client.put_object(Bucket=bucket_name, Key=object_key, Body=object_data)
+        self._boto3_client.put_object(
+            Bucket=bucket_name, Key=object_key, Body=object_data
+        )
+
+    def get_text_object_str(self, bucket_name, object_key):
+        """
+        Get the contents of a text object in an S3 bucket using boto3
+
+        For other types of objects, use get_object_contents
+
+        Returns:
+            str: The contents of the object
+
+        """
+        return self.get_object(bucket_name, object_key).read().decode("utf-8")
+
+    def get_object(self, bucket_name, object_key):
+        """
+        Get the contents of an object in an S3 bucket using boto3
+
+        Returns:
+            A botocore.response.StreamingBody object that can be read from
+
+        """
+        output = self._boto3_client.get_object(Bucket=bucket_name, Key=object_key)
+        return output["Body"]
 
     def sync(self, src, dst):
         """
@@ -112,15 +185,14 @@ class S3Client:
             src: Source path - can be a local path or an S3 path
             dst: Destination path - can be a local path or an S3 path
         """
-        output = self.exec_s3_cli_cmd(f"sync {src} {dst}")
+        self.exec_s3_cli_cmd(f"sync {src} {dst}")
 
     def delete_object(self, bucket_name, object_key):
         """
         Delete an object from an S3 bucket using boto3
 
         """
-
-        self.s3_client.delete_object(Bucket=bucket_name, Key=object_key)
+        self._boto3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
     def rm_recursive(self, bucket_name, s3_path=""):
         """
@@ -128,17 +200,6 @@ class S3Client:
 
         """
         self.exec_s3_cli_cmd(f"rm s3://{bucket_name}/{s3_path} --recursive")
-
-    def get_object(self, bucket_name, object_key):
-        """
-        Get an object from an S3 bucket using boto3
-
-
-        Returns:
-        # TODO
-        """
-        output = self.s3_client.get_object(Bucket=bucket_name, Key=object_key)
-        # TODO: return the object data
 
     def write_random_objs_to_bucket(
         self, bucket_name, amount=10, obj_size="1M", prefix="", files_dir=""
@@ -189,4 +250,5 @@ class S3Client:
         Delete all objects in an S3 bucket
 
         """
+        # TODO: Add support for buckets with versioning enabled
         self.rm_recursive(bucket_name)

@@ -13,10 +13,7 @@ from common_ci_utils.templating import Templating
 from common_ci_utils.command_runner import exec_cmd
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from noobaa_sa.factories import AccountFactory
-from noobaa_sa.bucket import BucketManager
 from framework import config
-from noobaa_sa.s3_client import S3Client
 from noobaa_sa.exceptions import MissingFileOrDirectoryException
 
 log = logging.getLogger(__name__)

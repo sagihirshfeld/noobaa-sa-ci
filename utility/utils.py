@@ -2,6 +2,7 @@
 General utility functions 
 
 """
+import os
 import uuid
 
 from framework import config
@@ -52,6 +53,17 @@ def generate_unique_resource_name(prefix="resource"):
     """
     unique_id = str(uuid.uuid4()).split("-")[0]
     return f"{prefix}-{unique_id}"
+
+
+def get_current_test_name():
+    """
+    Get the name of the current test
+
+    Returns:
+        str: The name of the current PyTest test
+
+    """
+    return os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
 
 def get_config_root_full_path():
