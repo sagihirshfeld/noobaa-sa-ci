@@ -2,12 +2,15 @@
 General utility functions 
 
 """
+import logging
 import os
 import uuid
 
 from framework import config
 from common_ci_utils.command_runner import exec_cmd
 from framework.ssh_connection_manager import SSHConnectionManager
+
+log = logging.getLogger(__name__)
 
 
 def get_noobaa_sa_host_home_path():
@@ -81,3 +84,27 @@ def get_config_root_full_path():
 
     config_root = config_root.split("~/")[1]
     return f"{get_noobaa_sa_host_home_path()}/{config_root}"
+
+
+def generate_random_files(dir, amount, size):
+    """
+    Generate random files in a given directory
+
+    Args:
+        dir (str): The directory in which to generate the files
+        amount (int): The number of files to generate
+        size (str): The size of each file
+
+    Returns:
+        list: A list of the files generated
+
+    """
+    log.info(f"Generating {amount} files of size {size} in {dir}")
+    files_generated = []
+    for i in range(amount):
+        obj_name = f"obj_{i}"
+        obj_path = os.path.join(dir, obj_name)
+        exec_cmd(f"dd if=/dev/urandom of={obj_path} bs={size} count=1")
+        files_generated.append(obj_name)
+
+    return files_generated
