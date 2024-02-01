@@ -3,11 +3,8 @@ Utility functions to run on the remote machine that hosts the NSFS server
 
 """
 import json
-import os
 import logging
 import tempfile
-import pytest
-import uuid
 
 from common_ci_utils.templating import Templating
 from common_ci_utils.command_runner import exec_cmd
