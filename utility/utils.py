@@ -5,6 +5,7 @@ General utility functions
 import logging
 import os
 import uuid
+import hashlib
 
 from framework import config
 from common_ci_utils.command_runner import exec_cmd
@@ -108,3 +109,26 @@ def generate_random_files(dir, amount, size):
         files_generated.append(obj_name)
 
     return files_generated
+
+
+def compare_md5sums(file1, file2):
+    """
+    Compare the md5sums of two files
+
+    Args:
+        file1 (str): The first file to compare (full path)
+        file2 (str): The second file to compare (full path)
+
+    Returns:
+        bool: True if the md5sums are equal, False otherwise
+
+    """
+    log.info(f"Comparing md5sums of {file1} and {file2}")
+    file1_contents, file2_contents = None, None
+    with open(file1, "rb") as f:
+        file1_contents = f.read()
+    with open(file2, "rb") as f:
+        file2_contents = f.read()
+    file1_md5sum = hashlib.md5(file1_contents).hexdigest()
+    file2_md5sum = hashlib.md5(file2_contents).hexdigest()
+    return file1_md5sum == file2_md5sum
