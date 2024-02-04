@@ -156,18 +156,6 @@ class S3Client:
             Bucket=bucket_name, Key=object_key, Body=object_data
         )
 
-    def get_text_object_str(self, bucket_name, object_key):
-        """
-        Get the contents of a text object in an S3 bucket using boto3
-
-        For other types of objects, use get_object_contents
-
-        Returns:
-            str: The contents of the object
-
-        """
-        return self.get_object(bucket_name, object_key).read().decode("utf-8")
-
     def get_object(self, bucket_name, object_key):
         """
         Get the contents of an object in an S3 bucket using boto3
@@ -177,12 +165,17 @@ class S3Client:
             object_key (str): The key of the object
 
         Returns:
-            A botocore.response.StreamingBody object that can be read from
+            A dictionary containing the object's metadata and contents.
+            Notable expected keys:
+                - "Body": the object's data
+                - "LastModified": the date and time the object was last modified
+                - "ContentLength": the size of the object in bytes
+                - "ResponseMetadata": a dict containing the response metadata
 
         """
         log.info(f"Getting object {object_key} from bucket {bucket_name} via boto3")
         output = self._boto3_client.get_object(Bucket=bucket_name, Key=object_key)
-        return output["Body"]
+        return output
 
     def upload_directory(self, local_dir, bucket_name, prefix=""):
         """
