@@ -87,14 +87,15 @@ def get_config_root_full_path():
     return f"{get_noobaa_sa_host_home_path()}/{config_root}"
 
 
-def generate_random_files(dir, amount, size):
+def generate_random_files(dir, amount=1, size="1M"):
     """
     Generate random files in a given directory
 
     Args:
         dir (str): The directory in which to generate the files
         amount (int): The number of files to generate
-        size (str): The size of each file
+        size (str): The size of each file, specified in a format understood by the 'dd' command.
+                    The size format is '[number][unit]', where 'unit' can be 'K', 'M', or 'G'.
 
     Returns:
         list: A list of the files generated

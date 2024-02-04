@@ -248,7 +248,7 @@ class S3Client:
         self._boto3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
     def put_random_objects(
-        self, bucket_name, amount=10, obj_size="1M", prefix="", files_dir=""
+        self, bucket_name, amount=1, obj_size="1M", prefix="", files_dir=""
     ):
         """
         Write random objects to an S3 bucket
@@ -256,7 +256,8 @@ class S3Client:
         Args:
             bucket_name (str): The name of the bucket to write to
             amount (int): The number of objects to write
-            obj_size (str): The size of each object
+            obj_size (str): The size of each object, specified in a format understood by the 'dd' command.
+                            The size format is '[number][unit]', where 'unit' can be 'K', 'M', or 'G'.
             prefix (str): A prefix where the objects will be written in the bucket
             files_dir (str): A directory where the objects will be written locally.
                              If not specified, a temporary directory will be used.
