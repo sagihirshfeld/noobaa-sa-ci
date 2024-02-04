@@ -16,15 +16,61 @@ from noobaa_sa.exceptions import MissingFileOrDirectoryException
 log = logging.getLogger(__name__)
 
 
+def run_systemctl_command_on_nsfs_service(cmd):
+    """
+    Run a systemctl command on the NSFS service
+
+    Return:
+        Tuple[int, str, str]: The return code, stdout and stderr of the command
+
+    """
+    return SSHConnectionManager().connection.exec_cmd(
+        f"sudo systemctl {cmd} {constants.NSFS_SERVICE_NAME}"
+    )
+
+
+def get_nsfs_service_status():
+    """
+    Get the status of the NSFS service using systemctl
+
+    Returns:
+        str: The raw output of the systemctl status command
+
+    """
+    log.info("Getting the status of the NSFS service")
+    _, stdout, _ = run_systemctl_command_on_nsfs_service("status")
+    log.info(f"NSFS service status: {stdout}")
+    return stdout
+
+
+def is_nsfs_service_running():
+    """
+    Get the status of the NSFS service using systemctl
+
+    Returns:
+        bool: True if the NSFS service is running, False otherwise
+
+    """
+    status_str = get_nsfs_service_status()
+    return "Active: active (running)" in status_str
+
+
+def stop_nsfs_service():
+    """
+    Use systemctl to stop the NSFS service
+
+    """
+    log.info("Stopping the NSFS service")
+    run_systemctl_command_on_nsfs_service("stop")
+
+
 def restart_nsfs_service():
     """
     Use systemctl to restart the NSFS service
 
     """
     log.info("Restarting the NSFS service")
-    SSHConnectionManager().connection.exec_cmd(
-        f"sudo systemctl restart {constants.NSFS_SERVICE_NAME}"
-    )
+    run_systemctl_command_on_nsfs_service("restart")
 
 
 def create_tls_key_and_cert(credentials_dir):
