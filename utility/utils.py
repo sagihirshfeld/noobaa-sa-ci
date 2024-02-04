@@ -5,7 +5,6 @@ General utility functions
 import logging
 import os
 import uuid
-import hashlib
 
 from framework import config
 from common_ci_utils.command_runner import exec_cmd

@@ -7,7 +7,6 @@ import logging
 import tempfile
 
 from common_ci_utils.templating import Templating
-from common_ci_utils.command_runner import exec_cmd
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
 from framework import config
