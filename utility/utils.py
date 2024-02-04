@@ -111,6 +111,25 @@ def generate_random_files(dir, amount, size):
     return files_generated
 
 
+def get_md5sum(file):
+    """
+    Calculate the md5sum of a file using the md5sum bash command
+
+    Args:
+        file (str): The file to calculate the md5sum of
+
+    Returns:
+        str: The md5sum of the file
+
+    """
+    result = exec_cmd(f"md5sum {file}")
+    if result.returncode != 0:
+        raise Exception(
+            f"Failed to calculate md5sum of {file}: {result.stderr.decode()}"
+        )
+    return result.stdout.decode().split(" ")[0]
+
+
 def compare_md5sums(file1, file2):
     """
     Compare the md5sums of two files
@@ -124,11 +143,6 @@ def compare_md5sums(file1, file2):
 
     """
     log.info(f"Comparing md5sums of {file1} and {file2}")
-    file1_contents, file2_contents = None, None
-    with open(file1, "rb") as f:
-        file1_contents = f.read()
-    with open(file2, "rb") as f:
-        file2_contents = f.read()
-    file1_md5sum = hashlib.md5(file1_contents).hexdigest()
-    file2_md5sum = hashlib.md5(file2_contents).hexdigest()
+    file1_md5sum = get_md5sum(file1)
+    file2_md5sum = get_md5sum(file2)
     return file1_md5sum == file2_md5sum
