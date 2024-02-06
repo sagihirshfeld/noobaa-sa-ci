@@ -2,8 +2,10 @@
 General utility functions 
 
 """
+
 import logging
 import os
+import random
 import uuid
 
 from framework import config
@@ -86,29 +88,87 @@ def get_config_root_full_path():
     return f"{get_noobaa_sa_host_home_path()}/{config_root}"
 
 
-def generate_random_files(dir, amount=1, size="1M"):
+def generate_random_files(dir, amount=1, min_size="1M", max_size="1M"):
     """
     Generate random files in a given directory
 
     Args:
         dir (str): The directory in which to generate the files
         amount (int): The number of files to generate
-        size (str): The size of each file, specified in a format understood by the 'dd' command.
-                    The size format is '[number][unit]', where 'unit' can be 'K', 'M', or 'G'.
+        min_size (str): The minimum size of each file, specified in a format understood by the 'dd' command.
+        max_size (str): The maximum size of each file, specified in a format understood by the 'dd' command.
 
     Returns:
         list: A list of the files generated
 
+    Raises:
+        ValueError: If one of the following applies:
+                    - The size unit is not an int followed by 'K', 'M', or 'G'
+                    - min_size is greater than max_size
+                    - Either min_size or max_size is set to zero
+
+
+    Example usage:
+        - generate_random_files(dir, 5)
+            --> Generates 5 files of size 1M in the given directory
+        - generate_random_files(dir, 5, "1M", "2M")
+            --> Generates 5 files of size between 1M and 2M in the given directory
+
     """
-    log.info(f"Generating {amount} files of size {size} in {dir}")
+
+    min_size_kb = parse_dd_size_to_kb(min_size)
+    max_size_kb = parse_dd_size_to_kb(max_size)
+
+    if min_size_kb > max_size_kb:
+        raise ValueError("min_size cannot be greater than max_size")
+
+    if min_size_kb == 0 or max_size_kb == 0:
+        raise ValueError("Size units cannot be zero")
+
+    log.info(
+        f"Generating {amount} files sized between {min_size} and {max_size} in {dir}"
+    )
+
     files_generated = []
     for i in range(amount):
         obj_name = f"obj_{i}"
         obj_path = os.path.join(dir, obj_name)
+        size = random.randint(min_size_kb, max_size_kb)
         exec_cmd(f"dd if=/dev/urandom of={obj_path} bs={size} count=1")
         files_generated.append(obj_name)
 
     return files_generated
+
+
+def parse_dd_size_to_kb(size):
+    """
+    Parse a size given in the format understood by the 'dd' command to kilobytes
+
+    Args:
+        size (str): The size to parse
+
+    Returns:
+        int: The size in kilobytes
+
+    Raises:
+        ValueError: If the size unit is not of the format understood by the 'dd' command
+                    i.e an int followed by 'K', 'M', or 'G'.
+
+    Example usage:
+        - parse_dd_size_to_kb("1M") -> 1024
+        - parse_dd_size_to_kb("1G") -> 1048576
+
+    """
+    unit = size[-1]
+    size = int(size[:-1])
+    if unit == "K":
+        return size
+    if unit == "M":
+        return size * 1024
+    if unit == "G":
+        return size * 1024 * 1024
+    else:
+        raise ValueError("Invalid size unit. Use 'K', 'M', or 'G'.")
 
 
 def get_md5sum(file):

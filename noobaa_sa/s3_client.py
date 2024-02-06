@@ -241,7 +241,13 @@ class S3Client:
         self._boto3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
     def put_random_objects(
-        self, bucket_name, amount=1, obj_size="1M", prefix="", files_dir=""
+        self,
+        bucket_name,
+        amount=1,
+        min_size="1M",
+        max_size="1M",
+        prefix="",
+        files_dir="",
     ):
         """
         Write random objects to an S3 bucket
@@ -249,14 +255,28 @@ class S3Client:
         Args:
             bucket_name (str): The name of the bucket to write to
             amount (int): The number of objects to write
-            obj_size (str): The size of each object, specified in a format understood by the 'dd' command.
-                            The size format is '[number][unit]', where 'unit' can be 'K', 'M', or 'G'.
+            min_size(str): The minimum size of each object, specified in a format understood by the 'dd' command.
+            max_size(str): The maximum size of each object, specified in a format understood by the 'dd' command.
             prefix (str): A prefix where the objects will be written in the bucket
             files_dir (str): A directory where the objects will be written locally.
                              If not specified, a temporary directory will be used.
 
         Returns:
             list: A list of the names of the objects written to the bucket
+
+        Raises:
+            ValueError: If one of the following applies:
+                    - The size unit is not an int followed by 'K', 'M', or 'G'
+                    - min_size is greater than max_size
+                    - Either min_size or max_size is set to zero
+
+        Example usage:
+            - s3_client.put_random_objects("my-bucket")
+                --> Writes 1 random 1M object to "my-bucket"
+            - s3_client.put_random_objects("my-bucket", amount=10, min_size="10M", max_size="10M")
+                --> Writes 10 random 10M objects to "my-bucket"
+            - s3_client.put_random_objects("my-bucket", amount=5, min_size="3K", max_size="15M", prefix="my-prefix")
+                --> Write 5 random objects sized between 3K and 15M to "my-bucket" under the "my-prefix" prefix
 
         """
         written_objs = []
@@ -265,7 +285,9 @@ class S3Client:
         actual_files_dir = files_dir if files_dir else tempfile.mkdtemp()
 
         # Generate random files in the specified directory
-        written_objs += generate_random_files(actual_files_dir, amount, obj_size)
+        written_objs += generate_random_files(
+            actual_files_dir, amount, min_size, max_size
+        )
 
         # Ensure the prefix ends with a slash if it is not empty
         if prefix and not prefix.endswith("/"):
