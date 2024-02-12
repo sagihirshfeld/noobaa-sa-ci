@@ -8,13 +8,15 @@ import os
 import random
 import uuid
 
-from framework import config
 from common_ci_utils.command_runner import exec_cmd
+
+from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 
 log = logging.getLogger(__name__)
 
 
+# TODO: Move to be another method of config?
 def get_noobaa_sa_host_home_path():
     """
     Get the full path of the home directory on the remote machine
@@ -60,6 +62,7 @@ def generate_unique_resource_name(prefix="resource"):
     return f"{prefix}-{unique_id}"
 
 
+# TODO: Move to be another method of config?
 def get_current_test_name():
     """
     Get the name of the current test
@@ -71,6 +74,7 @@ def get_current_test_name():
     return os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
 
+# TODO: Move to be another method of config?
 def get_config_root_full_path():
     """
     Get the full path of the configuration root directory on the remote machine
@@ -88,6 +92,7 @@ def get_config_root_full_path():
     return f"{get_noobaa_sa_host_home_path()}/{config_root}"
 
 
+# TODO: Move to dedicated class - RandomFileGenerator
 def generate_random_files(dir, amount=1, min_size="1M", max_size="1M"):
     """
     Generate random files in a given directory
@@ -140,6 +145,7 @@ def generate_random_files(dir, amount=1, min_size="1M", max_size="1M"):
     return files_generated
 
 
+# TODO: Make this a private method of a dedicated class - RandomFileGenerator
 def parse_dd_size_to_kb(size):
     """
     Parse a size given in the format understood by the 'dd' command to kilobytes
@@ -171,6 +177,7 @@ def parse_dd_size_to_kb(size):
         raise ValueError("Invalid size unit. Use 'K', 'M', or 'G'.")
 
 
+# TODO: move
 def get_md5sum(file):
     """
     Calculate the md5sum of a file using the md5sum bash command

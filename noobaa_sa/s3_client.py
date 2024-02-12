@@ -1,11 +1,13 @@
-import os
 import logging
+import os
 import tempfile
+
 import boto3
 from boto3.s3.transfer import TransferConfig
-from noobaa_sa.exceptions import BucketCreationFailed
-from utility.utils import generate_unique_resource_name, generate_random_files
 from botocore.exceptions import ClientError
+
+from noobaa_sa.exceptions import BucketCreationFailed
+from utility.utils import generate_random_files, generate_unique_resource_name
 
 log = logging.getLogger(__name__)
 
@@ -177,6 +179,7 @@ class S3Client:
         output = self._boto3_client.get_object(Bucket=bucket_name, Key=object_key)
         return output
 
+    # TODO: Breaks open-closed principle because it assumes the use of boto3
     def upload_directory(self, local_dir, bucket_name, prefix=""):
         """
         Upload a directory to an S3 bucket using boto3
@@ -202,6 +205,7 @@ class S3Client:
                     local_path, bucket_name, s3_path, Config=transfer_config
                 )
 
+    # TODO: Breaks open-closed principle because it assumes the use of boto3
     def download_bucket_contents(self, bucket_name, local_dir, prefix=""):
         """
         Downloads the contents of an S3 bucket prefix to a local directory.

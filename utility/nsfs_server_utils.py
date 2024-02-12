@@ -2,14 +2,16 @@
 Utility functions to run on the remote machine that hosts the NSFS server
 
 """
+
 import json
 import logging
 import tempfile
 
 from common_ci_utils.templating import Templating
+
+from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from framework import config
 from noobaa_sa.exceptions import MissingFileOrDirectoryException
 
 log = logging.getLogger(__name__)
