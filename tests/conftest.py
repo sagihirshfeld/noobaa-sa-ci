@@ -52,13 +52,8 @@ def setup_nsfs_server_tls_cert():
     Configure the NSFS server TLS certification and download the certificate
     in a local file.
 
-
-
     Args:
         config_root (str): The path to the configuration root directory.
-
-    Returns:
-        str: The path to the downloaded certificate file.
 
     """
     conn = SSHConnectionManager().connection
@@ -86,7 +81,11 @@ def setup_nsfs_server_tls_cert():
 @pytest.fixture
 def s3_client_factory(setup_nsfs_server_tls_cert, account_manager):
     """
-    Factory to create S3Client instances.
+    Factory to create S3Client instances with given credentials.
+
+    Args:
+        setup_nsfs_server_tls_cert (fixture): The prerequisite fixture to setup the NSFS server TLS certificate.
+        account_manager (AccountManager): The account manager instance.
 
     Returns:
         func: A function that creates S3Client instances.
@@ -102,9 +101,9 @@ def s3_client_factory(setup_nsfs_server_tls_cert, account_manager):
         Create an S3Client instance using the given credentials.
 
         Args:
+            endpoint_port (int): The port to use for the endpoint.
             access_and_secret_keys_tuple (tuple): A tuple of access and secret keys.
             verify_tls (bool): Whether to verify the TLS certificate.
-            endpoint_port (int): The port to use for the endpoint.
 
         Returns:
             S3Client: An S3Client instance.

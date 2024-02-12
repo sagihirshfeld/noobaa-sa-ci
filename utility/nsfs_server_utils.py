@@ -21,6 +21,9 @@ def run_systemctl_command_on_nsfs_service(cmd):
     """
     Run a systemctl command on the NSFS service
 
+    Args:
+        cmd (str): The command to run (e.g. "status", "stop", "restart")
+
     Return:
         Tuple[int, str, str]: The return code, stdout and stderr of the command
 
