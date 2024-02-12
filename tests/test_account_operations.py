@@ -1,7 +1,11 @@
 import logging
 
+from common_ci_utils.random_utils import (
+    generate_random_hex,
+    generate_unique_resource_name,
+)
+
 from framework import config
-from utility.utils import generate_random_hex, generate_unique_resource_name
 
 log = logging.getLogger(__name__)
 

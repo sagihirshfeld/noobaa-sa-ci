@@ -4,6 +4,10 @@ import tempfile
 import pytest
 
 from common_ci_utils.command_runner import exec_cmd
+from common_ci_utils.random_utils import (
+    generate_random_hex,
+    generate_unique_resource_name,
+)
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
 from noobaa_sa.factories import AccountFactory
@@ -12,8 +16,6 @@ from framework import config
 from noobaa_sa.s3_client import S3Client
 from utility.utils import (
     get_config_root_full_path,
-    generate_random_hex,
-    generate_unique_resource_name,
     get_current_test_name,
 )
 from utility.nsfs_server_utils import (

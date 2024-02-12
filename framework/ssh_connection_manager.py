@@ -4,7 +4,7 @@ Module to connect to remote host
 
 import logging
 
-from framework.extended_connection import ExtendedConnection
+from common_ci_utils.connection import Connection
 from framework import config
 from paramiko.auth_handler import AuthenticationException, SSHException
 
@@ -53,13 +53,13 @@ class SSHConnectionManager:
 
         try:
             if self.private_key:
-                self._conn = ExtendedConnection(
+                self._conn = Connection(
                     host=self.host,
                     user=self.user,
                     private_key=self.private_key,
                 )
             else:
-                self._conn = ExtendedConnection(
+                self._conn = Connection(
                     host=self.host,
                     user=self.user,
                     password=self.password,

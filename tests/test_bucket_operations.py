@@ -1,12 +1,13 @@
 import logging
 import os
 
-from framework.ssh_connection_manager import SSHConnectionManager
-from utility.utils import (
-    get_noobaa_sa_host_home_path,
+from common_ci_utils.random_utils import (
     generate_random_hex,
     generate_unique_resource_name,
 )
+
+from framework.ssh_connection_manager import SSHConnectionManager
+from utility.utils import get_noobaa_sa_host_home_path
 
 log = logging.getLogger(__name__)
 
