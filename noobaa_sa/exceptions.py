@@ -44,3 +44,11 @@ class BucketUpdateFailed(Exception):
 
 class MissingFileOrDirectoryException(Exception):
     pass
+
+
+class NoSuchBucketException(Exception):
+    pass
+
+
+class BucketNotEmptyException(Exception):
+    pass

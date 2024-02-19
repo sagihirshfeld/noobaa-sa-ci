@@ -10,7 +10,11 @@ from common_ci_utils.random_utils import (
     generate_unique_resource_name,
 )
 
-from noobaa_sa.exceptions import BucketCreationFailed
+from noobaa_sa.exceptions import (
+    BucketCreationFailed,
+    BucketNotEmptyException,
+    NoSuchBucketException,
+)
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +95,11 @@ class S3Client:
             empty_before_deletion (bool): Whether to empty the bucket before
             attempting deletion
 
+        Raises:
+            BucketNotEmptyException: If the bucket is not empty and empty_before_deletion is False
+            NoSuchBucketException: If the bucket does not exist
+            ClientError: If an unexpected error occurs
+
         """
         if empty_before_deletion:
             self.delete_all_objects_in_bucket(bucket_name)
@@ -104,9 +113,10 @@ class S3Client:
                     f"Bucket {bucket_name} is not empty and will not be deleted"
                     f"Set empty_before_deletion to True to delete it anyway."
                 )
-                raise e
+                raise BucketNotEmptyException(e)
             elif e.response["Error"]["Code"] == "NoSuchBucket":
                 log.warn(f"Bucket {bucket_name} does not exist and cannot be deleted")
+                raise NoSuchBucketException(e)
             else:
                 log.error(f"Failed to delete bucket {bucket_name}: {e}")
                 raise e
@@ -127,7 +137,7 @@ class S3Client:
         log.info(f"Listed buckets: {listed_buckets}")
         return listed_buckets
 
-    def list_objects(self, bucket_name, prefix="", use_v2=False):
+    def list_objects(self, bucket_name, prefix="", use_v2=False, get_metadata=False):
         """
         List objects in an S3 bucket using boto3
 
@@ -135,9 +145,13 @@ class S3Client:
             bucket_name (str): The name of the bucket
             prefix (str): A prefix where the objects will be listed from
             use_v2 (bool): Whether to use list_objects_v2 instead of list_objects
+            raw_output (bool): Whether to return the raw output from the boto3 call or just the object names
 
         Returns:
-            list: A list of the names of the objects
+            If get_metadata is False:
+                list of strings: A list of the names of the objects
+            If get_metadata is True:
+                list of dicts: A list of the objects' metadata
 
         """
         log.info(f"Listing objects in bucket {bucket_name} via boto3")
@@ -147,11 +161,12 @@ class S3Client:
             else self._boto3_client.list_objects
         )
         output = list_objects_method(Bucket=bucket_name, Prefix=prefix)
-        listed_objects = []
+        listed_obj_md_dicts = []
         if "Contents" in output:
-            listed_objects = [obj["Key"] for obj in output["Contents"]]
-        log.info(f"Listed objects: {listed_objects}")
-        return listed_objects
+            listed_obj_md_dicts = output["Contents"]
+        listed_objs_names = [obj["Key"] for obj in listed_obj_md_dicts]
+        log.info(f"Listed objects: {listed_objs_names}")
+        return listed_obj_md_dicts if get_metadata else listed_objs_names
 
     def put_object(self, bucket_name, object_key, object_data):
         """

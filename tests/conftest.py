@@ -28,8 +28,22 @@ from utility.nsfs_server_utils import (
 log = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="session")
+def account_manager_session(account_json=None):
+    return account_manager_implementation(account_json)
+
+
+@pytest.fixture(scope="class")
+def account_manager_class(account_json=None):
+    return account_manager_implementation(account_json)
+
+
 @pytest.fixture
 def account_manager(account_json=None):
+    return account_manager_implementation(account_json)
+
+
+def account_manager_implementation(account_json=None):
     account_factory = AccountFactory()
     return account_factory.get_account(account_json)
 
@@ -78,13 +92,59 @@ def setup_nsfs_server_tls_cert():
     S3Client.static_tls_crt_path = local_tls_crt_file.name
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+def s3_client_factory_session(setup_nsfs_server_tls_cert, account_manager_session):
+    """
+    Session scoped factory to create S3Client instances with given credentials.
+
+    Args:
+        setup_nsfs_server_tls_cert (fixture): The prerequisite fixture to setup the NSFS server TLS certificate.
+        account_manager (AccountManager): The account manager instance.
+
+    Returns:
+        func: A function that creates S3Client instances.
+
+    """
+    return s3_client_factory_implementation(account_manager_session)
+
+
+@pytest.fixture(scope="class")
+def s3_client_factory_class(setup_nsfs_server_tls_cert, account_manager_class):
+    """
+    Class scoped factory to create S3Client instances with given credentials.
+
+    Args:
+        setup_nsfs_server_tls_cert (fixture): The prerequisite fixture to setup the NSFS server TLS certificate.
+        account_manager (AccountManager): The account manager instance.
+
+    Returns:
+        func: A function that creates S3Client instances.
+
+    """
+    return s3_client_factory_implementation(account_manager_class)
+
+
+@pytest.fixture(scope="function")
 def s3_client_factory(setup_nsfs_server_tls_cert, account_manager):
+    """
+    Function scoped factory to create S3Client instances with given credentials.
+
+    Args:
+        setup_nsfs_server_tls_cert (fixture): The prerequisite fixture to setup the NSFS server TLS certificate.
+        account_manager (AccountManager): The account manager instance.
+
+    Returns:
+        func: A function that creates S3Client instances.
+
+    """
+    return s3_client_factory_implementation(account_manager)
+
+
+def s3_client_factory_implementation(account_manager):
     """
     Factory to create S3Client instances with given credentials.
 
     Args:
-        setup_nsfs_server_tls_cert (fixture): The prerequisite fixture to setup the NSFS server TLS certificate.
         account_manager (AccountManager): The account manager instance.
 
     Returns:
