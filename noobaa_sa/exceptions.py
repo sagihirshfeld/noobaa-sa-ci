@@ -60,3 +60,7 @@ class BucketAlreadyExistsException(Exception):
 
 class AccessDeniedException(Exception):
     pass
+
+
+class UnexpectedBehaviour(Exception):
+    pass

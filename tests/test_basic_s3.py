@@ -152,6 +152,25 @@ class TestBasicS3:
             log.error(f"Listed buckets: {listed_buckets}")
             raise e
 
+    def test_head_bucket(self, class_scope_s3_client):
+        """
+        Test S3 HeadBucket operation
+
+        Args:
+            class_scope_s3_client(S3Client): s3 client object
+
+        """
+        # Test whether the head bucket operations succeeds for a newly created bucket
+        bucket = class_scope_s3_client.create_bucket()
+        assert class_scope_s3_client.head_bucket(bucket) == True, (
+            "Head bucket operation failed for a newly created bucket",
+        )
+
+        # Test whether the head bucket operation fails for a non existing bucket
+        assert class_scope_s3_client.head_bucket("non_existing_bucket") == False, (
+            "Head bucket operation succeeded for non existing bucket",
+        )
+
     @pytest.mark.parametrize("use_v2", [False, True])
     def test_list_objects(self, class_scope_s3_client, tmp_directories_factory, use_v2):
         """

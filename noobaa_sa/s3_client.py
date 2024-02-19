@@ -15,6 +15,7 @@ from noobaa_sa.exceptions import (
     BucketNotEmptyException,
     NoSuchBucketException,
     BucketAlreadyExistsException,
+    UnexpectedBehaviour,
 )
 
 log = logging.getLogger(__name__)
@@ -130,6 +131,37 @@ class S3Client:
                 raise e
         else:
             log.info(f"Bucket {bucket_name} deleted successfully")
+
+    def head_bucket(self, bucket_name):
+        """
+        Check if a bucket exists in an S3 account using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket to check
+
+            Returns:
+                bool: True if the bucket exists, False otherwise
+
+        Raises:
+            UnexpectedBehaviour: If an unexpected response is received
+
+        """
+        log.info("Checking if bucket exists via an head_bucket call")
+        try:
+            response = self._boto3_client.head_bucket(Bucket=bucket_name)
+            response_code = int(response["ResponseMetadata"]["HTTPStatusCode"])
+        except ClientError as e:
+            response_code = int(e.response["Error"]["Code"])
+        if response_code == 200:
+            log.info(f"head_bucket call to {bucket_name} returned 200 (OK)")
+            return True
+        elif response_code == 404:
+            log.warn(f"head_bucket call to {bucket_name} returned 404 (Not Found)")
+            return False
+        else:
+            raise UnexpectedBehaviour(
+                f"Unexpected response from head_bucket call to {bucket_name}: {response}"
+            )
 
     def list_buckets(self):
         """
