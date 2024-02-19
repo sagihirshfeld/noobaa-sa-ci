@@ -20,6 +20,11 @@ from noobaa_sa.exceptions import (
 )
 from utility.utils import get_noobaa_sa_host_home_path
 
+from common_ci_utils.random_utils import (
+    generate_random_hex,
+    generate_unique_resource_name,
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -62,9 +67,9 @@ class NSFSAccount(Account):
 
     def create(
         self,
-        account_name,
-        access_key,
-        secret_key,
+        account_name="",
+        access_key="",
+        secret_key="",
         email="",
         allow_bucket_creation=True,
         uid=0,
@@ -86,7 +91,21 @@ class NSFSAccount(Account):
             config_root (str): path to config root
             fs_backend (str): filesystem backend
 
+        Returns:
+            tuple:
+                account_name (str): name of the account
+                access_key (str): access key for the account
+                secret_key (str): secret key for the account
+
         """
+
+        # Set default values if not provided
+        if not account_name:
+            account_name = generate_unique_resource_name(prefix="account")
+        if not access_key:
+            access_key = generate_random_hex()
+        if not secret_key:
+            secret_key = generate_random_hex()
         if not email:
             account_email = config.ENV_DATA["email"]
 
@@ -132,6 +151,7 @@ class NSFSAccount(Account):
                 f"Creation of account failed with error {stdout}"
             )
         log.info("Account created successfully")
+        return account_name, access_key, secret_key
 
     def list(self, config_root=None):
         """

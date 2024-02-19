@@ -170,12 +170,8 @@ def s3_client_factory_implementation(account_manager):
 
         """
         # Set the AWS access and secret keys
-        access_key, secret_key = None, None
         if access_and_secret_keys_tuple is None:
-            account_name = generate_unique_resource_name(prefix="account")
-            access_key = generate_random_hex()
-            secret_key = generate_random_hex()
-            account_manager.create(account_name, access_key, secret_key)
+            _, access_key, secret_key = account_manager.create()
         else:
             access_key, secret_key = access_and_secret_keys_tuple
 
