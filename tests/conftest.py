@@ -175,8 +175,7 @@ def s3_client_factory_implementation(account_manager):
             account_name = generate_unique_resource_name(prefix="account")
             access_key = generate_random_hex()
             secret_key = generate_random_hex()
-            config_root = config.ENV_DATA["config_root"]
-            account_manager.create(account_name, access_key, secret_key, config_root)
+            account_manager.create(account_name, access_key, secret_key)
         else:
             access_key, secret_key = access_and_secret_keys_tuple
 

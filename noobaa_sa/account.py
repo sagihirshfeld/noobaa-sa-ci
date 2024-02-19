@@ -65,6 +65,10 @@ class NSFSAccount(Account):
         account_name,
         access_key,
         secret_key,
+        email="",
+        allow_bucket_creation=True,
+        uid=0,
+        gid=0,
         config_root=None,
         fs_backend=constants.DEFAULT_FS_BACKEND,
     ):
@@ -72,8 +76,19 @@ class NSFSAccount(Account):
         Account creation using file
 
         Args:
-            config_root (str): Path to config root
+            account_name (str): name of the account
+            access_key (str): access key for the account
+            secret_key (str): secret key for the account
+            email (str): email for the account
+            allow_bucket_creation (bool): allow bucket creation
+            uid (int): user ID
+            gid (int): group ID
+            config_root (str): path to config root
+            fs_backend (str): filesystem backend
+
         """
+        if not email:
+            account_email = config.ENV_DATA["email"]
 
         hd = get_noobaa_sa_host_home_path()
         bucket_path = os.path.join(hd, f"fs_{account_name}")
@@ -92,9 +107,7 @@ class NSFSAccount(Account):
             "bucket_path": bucket_path,
             "fs_backend": fs_backend,
         }
-        account_data_full = templating.render_template(
-            account_template, account_data
-            )
+        account_data_full = templating.render_template(account_template, account_data)
         log.info(f"account content: {account_data_full}")
 
         # write to file

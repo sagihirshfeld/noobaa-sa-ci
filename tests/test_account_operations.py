@@ -16,7 +16,7 @@ def test_account_operations(account_manager):
     access_key = generate_random_hex()
     secret_key = generate_random_hex()
     config_root = config.ENV_DATA["config_root"]
-    account_manager.create(account_name, access_key, secret_key, config_root)
+    account_manager.create(account_name, access_key, secret_key)
     account_manager.list(config_root)
     account_manager.delete(account_name, config_root)
     account_manager.list()
