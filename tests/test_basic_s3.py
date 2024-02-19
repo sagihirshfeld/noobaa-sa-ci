@@ -4,11 +4,12 @@ import os
 
 import pytest
 from common_ci_utils.file_system_utils import compare_md5sums
-from common_ci_utils.random_utils import (
-    generate_random_hex,
-    generate_unique_resource_name,
+from noobaa_sa.exceptions import (
+    BucketAlreadyExistsException,
+    BucketNotEmptyException,
+    NoSuchBucketException,
+    AccessDeniedException,
 )
-from noobaa_sa.exceptions import NoSuchBucketException
 
 from utility.nsfs_server_utils import *
 
@@ -21,78 +22,116 @@ class TestBasicS3:
     """
 
     @pytest.fixture(scope="class")
-    def s3_client_and_account_setup(
-        self, account_manager_class, s3_client_factory_class
-    ):
+    def class_scope_s3_client(self, s3_client_factory_class):
         """
-        Create an account and an s3 client
+        Create a class scoped S3Client instance
 
         Args:
-            account_manager: account manager object
             s3_client_factory: s3 client factory object
 
         Returns:
             s3_client: s3 client object
-            account_name: account name
 
         """
-        account_name = generate_unique_resource_name(prefix="account")
-        access_key = generate_random_hex()
-        secret_key = generate_random_hex()
-        account_manager_class.create(account_name, access_key, secret_key)
+        s3_client = s3_client_factory_class()
+        return s3_client
 
-        s3_client = s3_client_factory_class(
-            access_and_secret_keys_tuple=(access_key, secret_key)
-        )
-        return s3_client, account_name
-
-    def test_bucket_creation_and_deletion(self, s3_client_and_account_setup):
+    def test_bucket_creation_and_deletion(self, class_scope_s3_client):
         """
         Test bucket creation and deletion via S3
 
         Args:
-            s3_client_and_account_setup: s3 client and account setup fixture
+            class_scope_s3_client(S3Client): s3 client object
 
         """
-        s3_client, _ = s3_client_and_account_setup
-        bucket_name = s3_client.create_bucket()
-        assert bucket_name in s3_client.list_buckets(), "Bucket was not created"
-        s3_client.delete_bucket(bucket_name)
-        assert bucket_name not in s3_client.list_buckets(), "Bucket was not deleted"
+        bucket_name = class_scope_s3_client.create_bucket()
+        assert (
+            bucket_name in class_scope_s3_client.list_buckets()
+        ), "Bucket was not created"
+        class_scope_s3_client.delete_bucket(bucket_name)
+        assert (
+            bucket_name not in class_scope_s3_client.list_buckets()
+        ), "Bucket was not deleted"
 
-    def test_missing_bucket_deletion(self, s3_client_and_account_setup):
+    def test_expected_bucket_creation_failures(
+        self, class_scope_s3_client, account_manager, s3_client_factory
+    ):
         """
-        Test that deletion of a non existing bucket raises a NoSuchBucket exception
+        Test bucket creation scenarios that are expected to fail
 
         """
-        s3_client, _ = s3_client_and_account_setup
+        # Test creating a bucket with the name of a bucket that already exists
+        log.info("Creating a bucket with a name that already exists")
+        bucket_name = class_scope_s3_client.create_bucket()
+        with pytest.raises(BucketAlreadyExistsException):
+            class_scope_s3_client.create_bucket(bucket_name)
+            log.error("Bucket creation with existing name succeeded")
+        log.info("Bucket creation with existing name failed as expected")
+
+        # Test creating a bucket using the credentials of a user that's not allowed to create buckets
+
+        # TODO: Comment out once https://bugzilla.redhat.com/show_bug.cgi?id=2262992 is fixed
+        # log.info("Creating a bucket using restricted account credentials")
+        # _, restricted_acc_access_key, restricted_acc_secret_key = (
+        #     account_manager.create(allow_bucket_creation=False)
+        # )
+        # restricted_s3_client = s3_client_factory(
+        #     access_and_secret_keys_tuple=(
+        #         restricted_acc_access_key,
+        #         restricted_acc_secret_key,
+        #     )
+        # )
+        # with pytest.raises(AccessDeniedException):
+        #     restricted_s3_client.create_bucket()
+        #     log.error("Bucket creation using restricted account credentials succeeded")
+        # log.info(
+        #     "Bucket creation using restricted account credentials failed as expected"
+        # )
+
+    def test_expected_bucket_deletion_failures(self, class_scope_s3_client):
+        """
+        Test bucket deletion scenarios that are expected to fail
+
+        """
+        # Test deleting a non existing bucket
+        log.info("Deleting a non existing bucket")
         with pytest.raises(NoSuchBucketException):
-            s3_client.delete_bucket("non_existing_bucket")
+            class_scope_s3_client.delete_bucket("non_existing_bucket")
+            log.error("Bucket deletion of non existing bucket succeeded")
+        log.info("Bucket deletion of non existing bucket failed as expected")
 
-    def test_list_buckets(self, s3_client_and_account_setup):
+        # Test deleting a non empty bucket
+        log.info("Deleting a non empty bucket")
+        with pytest.raises(BucketNotEmptyException):
+            bucket_name = class_scope_s3_client.create_bucket()
+            class_scope_s3_client.put_random_objects(bucket_name, amount=1)
+            class_scope_s3_client.delete_bucket(bucket_name)
+            log.error("Bucket deletion of non empty bucket succeeded")
+        log.info("Bucket deletion of non empty bucket failed as expected")
+
+    def test_list_buckets(self, class_scope_s3_client):
         """
         Test listing buckets before creation and after deletion via S3
 
         Args:
-            s3_client_and_account_setup: s3 client and account setup fixture
+            class_scope_s3_client(S3Client): s3 client object
 
         """
-        s3_client, _ = s3_client_and_account_setup
         buckets, listed_buckets = [], []
         AMOUNT = 5
         log.info(f"Creating {AMOUNT} buckets")
         try:
             for _ in range(AMOUNT):
-                buckets.append(s3_client.create_bucket())
+                buckets.append(class_scope_s3_client.create_bucket())
 
-            listed_buckets = s3_client.list_buckets()
+            listed_buckets = class_scope_s3_client.list_buckets()
             assert all(
                 bucket in listed_buckets for bucket in buckets
             ), "Created bucket was not listed!"
 
             log.info("Deleting one of the buckets")
-            s3_client.delete_bucket(buckets[-1])
-            listed_buckets = s3_client.list_buckets()
+            class_scope_s3_client.delete_bucket(buckets[-1])
+            listed_buckets = class_scope_s3_client.list_buckets()
             assert (
                 buckets[-1] not in listed_buckets
             ), "Deleted bucket was still listed post deletion!"
@@ -102,10 +141,10 @@ class TestBasicS3:
 
             log.info(f"Deleting the remaining {AMOUNT - 1} buckets")
             for i in range(AMOUNT - 1):
-                s3_client.delete_bucket(buckets[i])
+                class_scope_s3_client.delete_bucket(buckets[i])
 
             assert all(
-                bucket not in s3_client.list_buckets() for bucket in buckets
+                bucket not in class_scope_s3_client.list_buckets() for bucket in buckets
             ), "Some buckets that were deleted were still listed"
 
         except AssertionError as e:
@@ -114,21 +153,23 @@ class TestBasicS3:
             raise e
 
     @pytest.mark.parametrize("use_v2", [False, True])
-    def test_list_objects(
-        self, s3_client_and_account_setup, tmp_directories_factory, use_v2
-    ):
+    def test_list_objects(self, class_scope_s3_client, tmp_directories_factory, use_v2):
         """
         Test S3 ListObjects and S3 ListObjectsV2 operations
 
+        Args:
+            class_scope_s3_client(S3Client): s3 client object
+            tmp_directories_factory: tmp directories factory object
+            use_v2(bool): whether to use ListObjectsV2
+
         """
         origin_dir = tmp_directories_factory(dirs_to_create=["origin"])[0]
-        s3_client, _ = s3_client_and_account_setup
-        bucket = s3_client.create_bucket()
+        bucket = class_scope_s3_client.create_bucket()
 
-        written_objs_names = s3_client.put_random_objects(
+        written_objs_names = class_scope_s3_client.put_random_objects(
             bucket, amount=5, min_size="1M", max_size="2M", files_dir=origin_dir
         )
-        listed_objs_md_dicts = s3_client.list_objects(
+        listed_objs_md_dicts = class_scope_s3_client.list_objects(
             bucket, use_v2=use_v2, get_metadata=True
         )
 

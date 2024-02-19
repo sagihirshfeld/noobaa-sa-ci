@@ -14,6 +14,7 @@ from noobaa_sa.exceptions import (
     BucketCreationFailed,
     BucketNotEmptyException,
     NoSuchBucketException,
+    BucketAlreadyExistsException,
 )
 
 log = logging.getLogger(__name__)
@@ -72,11 +73,18 @@ class S3Client:
         Returns:
             str: The name of the created bucket
 
+        Raises:
+            BucketAlreadyExistsException: If the bucket already exists
+            BucketCreationFailed: If the bucket could not be created for any other reason
         """
         if bucket_name == "":
             bucket_name = generate_unique_resource_name(prefix="bucket")
         log.info(f"Creating bucket {bucket_name} via boto3")
-        response = self._boto3_client.create_bucket(Bucket=bucket_name)
+        try:
+            response = self._boto3_client.create_bucket(Bucket=bucket_name)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "BucketAlreadyExists":
+                raise BucketAlreadyExistsException(e)
         if "Location" not in response:
             raise BucketCreationFailed(
                 f"Could not create bucket {bucket_name}. Response: {response}"

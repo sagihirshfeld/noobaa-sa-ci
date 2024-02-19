@@ -52,3 +52,11 @@ class NoSuchBucketException(Exception):
 
 class BucketNotEmptyException(Exception):
     pass
+
+
+class BucketAlreadyExistsException(Exception):
+    pass
+
+
+class AccessDeniedException(Exception):
+    pass
