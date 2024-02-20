@@ -358,6 +358,45 @@ class S3Client:
         )
         return response
 
+    def copy_object(self, src_bucket, src_key, dest_bucket, dest_key):
+        """
+        Copy an object using boto3
+
+        Args:
+            src_bucket (str): The name of the source bucket
+            src_key (str): The key of the source object
+            dest_bucket (str): The name of the destination bucket
+            dest_key (str): The key of the destination object
+
+        Returns:
+            dict: A dictionary containing the response from the copy operation
+
+        Raises:
+            NoSuchBucketException: If the source or destination bucket does not exist
+            NoSuchKeyException: If the source object does not exist
+
+        """
+        try:
+            response = self._boto3_client.copy_object(
+                Bucket=dest_bucket,
+                CopySource={"Bucket": src_bucket, "Key": src_key},
+                Key=dest_key,
+            )
+            return response
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchBucket":
+                log.warn(
+                    f"Source or destination bucket does not exist: {e.response['Error']['Message']}"
+                )
+                raise NoSuchBucketException(e)
+            elif e.response["Error"]["Code"] == "NoSuchKey":
+                log.warn(
+                    f"Source object {src_key} does not exist in bucket {src_bucket}"
+                )
+                raise NoSuchKeyException(e)
+            else:
+                raise e
+
     def put_random_objects(
         self,
         bucket_name,

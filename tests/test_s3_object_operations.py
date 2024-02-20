@@ -57,7 +57,7 @@ class TestS3ObjectOperations:
 
     def test_delete_objects(self, c_scope_s3client):
         """
-        Test S3 DeleteObjects operation
+        Test S3 DeleteObjects operation (Note the difference between DeleteObject)
 
         """
         bucket = c_scope_s3client.create_bucket()
@@ -84,29 +84,6 @@ class TestS3ObjectOperations:
         assert (
             len(c_scope_s3client.list_objects(bucket)) == 0
         ), "Bucket is not empty after attempting to delete all objects"
-
-    def test_expected_put_and_get_failures(self, c_scope_s3client):
-        """
-        Test S3 PutObject and GetObject operations that are expected to fail
-
-        """
-        bucket = c_scope_s3client.create_bucket()
-
-        # Test putting an object to a non existing bucket
-        log.info("Putting an object to a non existing bucket")
-        with pytest.raises(NoSuchBucketException):
-            c_scope_s3client.put_object(
-                bucket_name="non-existant-bucket", object_key="obj", body="body"
-            )
-            log.error("Putting an object to a non existing bucket succeeded")
-        log.info("Putting an object to a non existing bucket failed as expected")
-
-        # Test getting a non existing object
-        log.info("Getting a non existing object")
-        with pytest.raises(NoSuchKeyException):
-            c_scope_s3client.get_object(bucket, "non_existing_obj")
-            log.error("Getting a non existing object succeeded")
-        log.info("Getting a non existing object failed as expected")
 
     def test_copy_object(self, c_scope_s3client):
         """
@@ -177,50 +154,70 @@ class TestS3ObjectOperations:
             md5sums_match = compare_md5sums(original_full_path, downloaded_full_path)
             assert md5sums_match, f"MD5 sums do not match for {original}"
 
+    def test_expected_put_and_get_failures(self, c_scope_s3client):
+        """
+        Test S3 PutObject and GetObject operations that are expected to fail
 
-# def test_basic_s3(
-#     account_manager,
-#     s3_client_factory_implementation,
-#     tmp_directories_factory,
-# ):
-#     """
-#     Test basic s3 operations using a noobaa bucket:
-#     1. Create an account
-#     2. Create a bucket using S3
-#     3. Write objects to the bucket
-#     4. List the bucket's contents
-#     5. Read the objects from the bucket and verify data integrity
-#     6. Delete the objects from the bucket
-#     7. Delete the bucket using S3
+        """
+        bucket = c_scope_s3client.create_bucket()
 
-#     """
-#     origin_dir, results_dir = tmp_directories_factory(
-#         dirs_to_create=["origin", "result"]
-#     )
+        # Test putting an object to a non existing bucket
+        log.info("Putting an object to a non existing bucket")
+        with pytest.raises(NoSuchBucketException):
+            c_scope_s3client.put_object(
+                bucket_name="non-existant-bucket", object_key="obj", body="body"
+            )
+            log.error("Putting an object to a non existing bucket succeeded")
+        log.info("Putting an object to a non existing bucket failed as expected")
 
-#     # 3. Write objects to the bucket
-#     original_objs_names = s3_client.put_random_objects(
-#         bucket_name, amount=10, min_size="1M", max_size="2M", files_dir=origin_dir
-#     )
+        # Test getting a non existing object
+        log.info("Getting a non existing object")
+        with pytest.raises(NoSuchKeyException):
+            c_scope_s3client.get_object(bucket, "non_existing_obj")
+            log.error("Getting a non existing object succeeded")
+        log.info("Getting a non existing object failed as expected")
 
-#     # 5. Download the objects from the bucket and verify data integrity
-#     s3_client.download_bucket_contents(bucket_name, results_dir)
-#     downloaded_objs_names = os.listdir(results_dir)
-#     obj_count_match = len(original_objs_names) == len(downloaded_objs_names)
-#     assert obj_count_match, "Downloaded and original objects count does not match"
-#     original_objs_names.sort()
-#     downloaded_objs_names.sort()
-#     for original, downloaded in zip(original_objs_names, downloaded_objs_names):
-#         original_full_path = os.path.join(origin_dir, original)
-#         downloaded_full_path = os.path.join(results_dir, downloaded)
-#         md5sums_match = compare_md5sums(original_full_path, downloaded_full_path)
-#         assert md5sums_match == True, f"MD5 sums do not match for {original}"
+    def test_expected_copy_failures(self, c_scope_s3client):
+        """
+        Test S3 CopyObject operations that are expected to fail
 
-#     # 6. Delete the objects from the bucket
-#     s3_client.delete_all_objects_in_bucket(bucket_name)
-#     bucket_is_empty = len(s3_client.list_objects(bucket_name)) == 0
-#     assert bucket_is_empty, "Bucket is not empty after attempting to delete all objects"
+        """
+        bucket = c_scope_s3client.create_bucket()
+        obj_key = generate_unique_resource_name(prefix="obj")
+        c_scope_s3client.put_object(bucket, obj_key, body="body")
 
-#     # 7.Delete the bucket using S3
-#     s3_client.delete_bucket(bucket_name)
-#     assert bucket_name not in s3_client.list_buckets(), "Bucket was not deleted"
+        # Test copying from a non existing bucket
+        log.info("Attempting to copy from a non existing bucket")
+        with pytest.raises(NoSuchBucketException):
+            c_scope_s3client.copy_object(
+                src_bucket="non_existing_bucket",
+                src_key="non_existing_obj",
+                dest_bucket=bucket,
+                dest_key="dest_key",
+            )
+            log.error("Copying from a non existing bucket succeeded")
+        log.info("Copying from a non existing bucket failed as expected")
+
+        # Test copying an object to a non existing bucket
+        log.info("Attempting to copy to a non existing bucket")
+        with pytest.raises(NoSuchBucketException):
+            c_scope_s3client.copy_object(
+                src_bucket=bucket,
+                src_key=obj_key,
+                dest_bucket="non_existing_bucket",
+                dest_key="dest_key",
+            )
+            log.error("Copying to a non existing bucket succeeded")
+        log.info("Copying to a non existing bucket failed as expected")
+
+        # Test copying a non existing object
+        log.info("Attempting to copy a non existing object")
+        with pytest.raises(NoSuchKeyException):
+            c_scope_s3client.copy_object(
+                src_bucket=bucket,
+                src_key="non_existing_obj",
+                dest_bucket=bucket,
+                dest_key="dest_key",
+            )
+            log.error("Copying a non existing object succeeded")
+        log.info("Copying a non existing object failed as expected")
