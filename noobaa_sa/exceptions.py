@@ -64,3 +64,7 @@ class AccessDeniedException(Exception):
 
 class UnexpectedBehaviour(Exception):
     pass
+
+
+class NoSuchKeyException(Exception):
+    pass

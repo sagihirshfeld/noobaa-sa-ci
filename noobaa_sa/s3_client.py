@@ -15,6 +15,7 @@ from noobaa_sa.exceptions import (
     BucketNotEmptyException,
     NoSuchBucketException,
     BucketAlreadyExistsException,
+    NoSuchKeyException,
     UnexpectedBehaviour,
 )
 
@@ -208,15 +209,30 @@ class S3Client:
         log.info(f"Listed objects: {listed_objs_names}")
         return listed_obj_md_dicts if get_metadata else listed_objs_names
 
-    def put_object(self, bucket_name, object_key, object_data):
+    def put_object(self, bucket_name, object_key, body):
         """
         Put an object in an S3 bucket using boto3
 
+        Args:
+            bucket_name (str): The name of the bucket
+            object_key (str): The key of the object
+            body (bytes|file-like object): The data to write to the object
+
+        Raises:
+            NoSuchBucketException: If the bucket does not exist
+
         """
         log.info(f"Putting object {object_key} in bucket {bucket_name} via boto3")
-        self._boto3_client.put_object(
-            Bucket=bucket_name, Key=object_key, Body=object_data
-        )
+        try:
+            self._boto3_client.put_object(Bucket=bucket_name, Key=object_key, Body=body)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchBucket":
+                log.warn(
+                    f"Bucket {bucket_name} does not exist and cannot be written to"
+                )
+                raise NoSuchBucketException(e)
+            else:
+                raise e
 
     def get_object(self, bucket_name, object_key):
         """
@@ -234,9 +250,20 @@ class S3Client:
                 - "ContentLength": the size of the object in bytes
                 - "ResponseMetadata": a dict containing the response metadata
 
+        Raises:
+            NoSuchKeyException: If the object does not exist
+
         """
         log.info(f"Getting object {object_key} from bucket {bucket_name} via boto3")
-        output = self._boto3_client.get_object(Bucket=bucket_name, Key=object_key)
+        try:
+            output = self._boto3_client.get_object(Bucket=bucket_name, Key=object_key)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                log.warn(f"Object {object_key} does not exist in bucket {bucket_name}")
+                raise NoSuchKeyException(e)
+            else:
+                raise e
+
         return output
 
     def upload_directory(self, local_dir, bucket_name, prefix=""):
@@ -298,9 +325,38 @@ class S3Client:
         """
         Delete an object from an S3 bucket using boto3
 
+        Args:
+            bucket_name (str): The name of the bucket
+            object_key (str): The key of the object
+
         """
         log.info(f"Deleting object {object_key} from bucket {bucket_name} via boto3")
         self._boto3_client.delete_object(Bucket=bucket_name, Key=object_key)
+
+    def delete_objects(self, bucket_name, object_keys, quiet=True):
+        """
+        Delete multiple objects from an S3 bucket using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket
+            object_keys (list): A list of the keys of the objects to delete
+            quiet (bool): Should the response not contain the result of each delete operation
+
+        Returns:
+            dict: A dictionary containing the response from the delete operation
+
+        """
+        log.info(
+            f"Deleting {len(object_keys)} objects from bucket {bucket_name} via boto3"
+        )
+        delete_objects_dict = {
+            "Objects": [{"Key": key} for key in object_keys],
+            "Quiet": quiet,
+        }
+        response = self._boto3_client.delete_objects(
+            Bucket=bucket_name, Delete=delete_objects_dict
+        )
+        return response
 
     def put_random_objects(
         self,

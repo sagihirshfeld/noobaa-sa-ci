@@ -3,12 +3,10 @@ import logging
 import os
 
 import pytest
-from common_ci_utils.file_system_utils import compare_md5sums
 from noobaa_sa.exceptions import (
     BucketAlreadyExistsException,
     BucketNotEmptyException,
     NoSuchBucketException,
-    AccessDeniedException,
 )
 
 from utility.nsfs_server_utils import *
@@ -16,9 +14,9 @@ from utility.nsfs_server_utils import *
 log = logging.getLogger(__name__)
 
 
-class TestBasicS3:
+class TestS3BucketOperations:
     """
-    Test basic s3 operations using NSFS noobaa buckets
+    Test S3 bucket operations using NSFS
     """
 
     def test_bucket_creation_and_deletion(self, c_scope_s3client):
@@ -206,74 +204,3 @@ class TestBasicS3:
                 "Listed object size does not match written object size",
                 f"Object: {written}, Expected: {expected_size}, Actual: {listed_size}",
             )
-
-
-# def test_basic_s3(
-#     account_manager,
-#     s3_client_factory_implementation,
-#     tmp_directories_factory,
-# ):
-#     """
-#     Test basic s3 operations using a noobaa bucket:
-#     1. Create an account
-#     2. Create a bucket using S3
-#     3. Write objects to the bucket
-#     4. List the bucket's contents
-#     5. Read the objects from the bucket and verify data integrity
-#     6. Delete the objects from the bucket
-#     7. Delete the bucket using S3
-
-#     """
-#     origin_dir, results_dir = tmp_directories_factory(
-#         dirs_to_create=["origin", "result"]
-#     )
-
-#     # 1. Create an account and a bucket
-#     # TODO: create support for default account / bucket creation without params
-#     account_name = generate_unique_resource_name(prefix="account")
-#     access_key = generate_random_hex()
-#     secret_key = generate_random_hex()
-#     account_manager.create(account_name, access_key, secret_key)
-
-#     # TODO: add support for passing an account object instead of these credentials
-#     s3_client = s3_client_factory_implementation(
-#         access_and_secret_keys_tuple=(access_key, secret_key)
-#     )
-
-#     # 2. Create a bucket using S3
-#     bucket_name = s3_client.create_bucket()
-#     assert bucket_name in s3_client.list_buckets(), "Bucket was not created"
-
-#     # 3. Write objects to the bucket
-#     original_objs_names = s3_client.put_random_objects(
-#         bucket_name, amount=10, min_size="1M", max_size="2M", files_dir=origin_dir
-#     )
-
-#     # 4. List the bucket's contents
-#     listed_objs = s3_client.list_objects(bucket_name)
-#     obj_count_match = len(listed_objs) == len(original_objs_names)
-#     assert obj_count_match, "Listed objects count does not match original objects count"
-
-#     s3_client.get_object(bucket_name, listed_objs[0])
-
-#     # 5. Download the objects from the bucket and verify data integrity
-#     s3_client.download_bucket_contents(bucket_name, results_dir)
-#     downloaded_objs_names = os.listdir(results_dir)
-#     obj_count_match = len(original_objs_names) == len(downloaded_objs_names)
-#     assert obj_count_match, "Downloaded and original objects count does not match"
-#     original_objs_names.sort()
-#     downloaded_objs_names.sort()
-#     for original, downloaded in zip(original_objs_names, downloaded_objs_names):
-#         original_full_path = os.path.join(origin_dir, original)
-#         downloaded_full_path = os.path.join(results_dir, downloaded)
-#         md5sums_match = compare_md5sums(original_full_path, downloaded_full_path)
-#         assert md5sums_match == True, f"MD5 sums do not match for {original}"
-
-#     # 6. Delete the objects from the bucket
-#     s3_client.delete_all_objects_in_bucket(bucket_name)
-#     bucket_is_empty = len(s3_client.list_objects(bucket_name)) == 0
-#     assert bucket_is_empty, "Bucket is not empty after attempting to delete all objects"
-
-#     # 7.Delete the bucket using S3
-#     s3_client.delete_bucket(bucket_name)
-#     assert bucket_name not in s3_client.list_buckets(), "Bucket was not deleted"
