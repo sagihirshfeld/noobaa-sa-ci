@@ -12,7 +12,7 @@ from common_ci_utils.templating import Templating
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from noobaa_sa.exceptions import MissingFileOrDirectoryException
+from noobaa_sa.exceptions import MissingFileOrDirectory
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ def set_nsfs_service_certs_dir(creds_dir, config_root=config.ENV_DATA["config_ro
     )
     retcode, stdout, _ = conn.exec_cmd(f"cat {config_root}/system.json")
     if retcode != 0:
-        raise MissingFileOrDirectoryException(
+        raise MissingFileOrDirectory(
             f"system.json file not found in {config_root}: {stdout}"
         )
     system_json = json.loads(stdout)

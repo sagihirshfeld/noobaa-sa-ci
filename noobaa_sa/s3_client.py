@@ -12,9 +12,9 @@ from common_ci_utils.random_utils import (
 
 from noobaa_sa.exceptions import (
     BucketCreationFailed,
-    BucketNotEmptyException,
-    NoSuchBucketException,
-    BucketAlreadyExistsException,
+    BucketNotEmpty,
+    NoSuchBucket,
+    BucketAlreadyExists,
     NoSuchKeyException,
     UnexpectedBehaviour,
 )
@@ -22,7 +22,6 @@ from noobaa_sa.exceptions import (
 log = logging.getLogger(__name__)
 
 
-# TODO: Add robust exception handling to all the methods
 class S3Client:
     """
     A wrapper class for S3 operations using boto3
@@ -86,7 +85,7 @@ class S3Client:
             response = self._boto3_client.create_bucket(Bucket=bucket_name)
         except ClientError as e:
             if e.response["Error"]["Code"] == "BucketAlreadyExists":
-                raise BucketAlreadyExistsException(e)
+                raise BucketAlreadyExists(e)
         if "Location" not in response:
             raise BucketCreationFailed(
                 f"Could not create bucket {bucket_name}. Response: {response}"
@@ -123,10 +122,10 @@ class S3Client:
                     f"Bucket {bucket_name} is not empty and will not be deleted"
                     f"Set empty_before_deletion to True to delete it anyway."
                 )
-                raise BucketNotEmptyException(e)
+                raise BucketNotEmpty(e)
             elif e.response["Error"]["Code"] == "NoSuchBucket":
                 log.warn(f"Bucket {bucket_name} does not exist and cannot be deleted")
-                raise NoSuchBucketException(e)
+                raise NoSuchBucket(e)
             else:
                 log.error(f"Failed to delete bucket {bucket_name}: {e}")
                 raise e
@@ -230,7 +229,7 @@ class S3Client:
                 log.warn(
                     f"Bucket {bucket_name} does not exist and cannot be written to"
                 )
-                raise NoSuchBucketException(e)
+                raise NoSuchBucket(e)
             else:
                 raise e
 
@@ -376,6 +375,9 @@ class S3Client:
             NoSuchKeyException: If the source object does not exist
 
         """
+        log.info(
+            f"Copying object {src_key} from {src_bucket} to {dest_bucket}/{dest_key}"
+        )
         try:
             response = self._boto3_client.copy_object(
                 Bucket=dest_bucket,
@@ -388,7 +390,7 @@ class S3Client:
                 log.warn(
                     f"Source or destination bucket does not exist: {e.response['Error']['Message']}"
                 )
-                raise NoSuchBucketException(e)
+                raise NoSuchBucket(e)
             elif e.response["Error"]["Code"] == "NoSuchKey":
                 log.warn(
                     f"Source object {src_key} does not exist in bucket {src_bucket}"
