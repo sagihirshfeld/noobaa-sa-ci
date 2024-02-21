@@ -1,15 +1,10 @@
-from datetime import datetime, timedelta, timezone
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 
 import pytest
-from noobaa_sa.exceptions import (
-    BucketAlreadyExists,
-    BucketNotEmpty,
-    NoSuchBucket,
-)
 
-from utility.nsfs_server_utils import *
+from noobaa_sa.exceptions import BucketAlreadyExists, BucketNotEmpty, NoSuchBucket
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +34,6 @@ class TestS3BucketOperations:
             c_scope_s3client.head_bucket(bucket_name) == False
         ), "Bucket was not deleted"
 
-    # TODO: rewrite
     def test_list_buckets(self, c_scope_s3client):
         """
         Test listing buckets before creation and after deletion via S3
@@ -47,12 +41,13 @@ class TestS3BucketOperations:
         """
         buckets, listed_buckets = [], []
         AMOUNT = 5
-        log.info(f"Creating {AMOUNT} buckets")
         try:
             for _ in range(AMOUNT):
                 buckets.append(c_scope_s3client.create_bucket())
 
             listed_buckets = c_scope_s3client.list_buckets()
+
+            # listed_buckets might contain buckets from before the test
             assert all(
                 bucket in listed_buckets for bucket in buckets
             ), "Created bucket was not listed!"

@@ -1,19 +1,14 @@
-from datetime import datetime, timedelta, timezone
 import logging
 import os
 
 import pytest
+from common_ci_utils.file_system_utils import compare_md5sums
 from common_ci_utils.random_utils import (
     generate_random_hex,
     generate_unique_resource_name,
 )
-from common_ci_utils.file_system_utils import compare_md5sums
-from noobaa_sa.exceptions import (
-    NoSuchBucket,
-    NoSuchKeyException,
-)
 
-from utility.nsfs_server_utils import *
+from noobaa_sa.exceptions import NoSuchBucket, NoSuchKey
 
 log = logging.getLogger(__name__)
 
@@ -194,7 +189,7 @@ class TestS3ObjectOperations:
             )
 
         # 2. Attempt getting a non existing object
-        with pytest.raises(NoSuchKeyException):
+        with pytest.raises(NoSuchKey):
             c_scope_s3client.get_object(bucket, "non_existing_obj")
             log.error(
                 "Attempting to get a non existing object did not fail as expected"
@@ -237,7 +232,7 @@ class TestS3ObjectOperations:
             )
 
         # 3. Attempt copying a non existing object
-        with pytest.raises(NoSuchKeyException):
+        with pytest.raises(NoSuchKey):
             c_scope_s3client.copy_object(
                 src_bucket=bucket,
                 src_key="non_existing_obj",

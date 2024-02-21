@@ -66,5 +66,5 @@ class UnexpectedBehaviour(Exception):
     pass
 
 
-class NoSuchKeyException(Exception):
+class NoSuchKey(Exception):
     pass

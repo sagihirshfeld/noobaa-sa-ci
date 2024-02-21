@@ -15,7 +15,7 @@ from noobaa_sa.exceptions import (
     BucketNotEmpty,
     NoSuchBucket,
     BucketAlreadyExists,
-    NoSuchKeyException,
+    NoSuchKey,
     UnexpectedBehaviour,
 )
 
@@ -37,6 +37,15 @@ class S3Client:
     static_tls_crt_path = ""
 
     def __init__(self, endpoint, access_key, secret_key, verify_tls=True):
+        """
+
+        Args:
+            endpoint (str): The S3 endpoint to connect to
+            access_key (str): The access key of the S3 account
+            secret_key (str): The secret key of the S3 account
+            verify_tls (bool): Whether to use secure connections via TLS
+
+        """
         self.endpoint = endpoint
         self._access_key = access_key
         self._secret_key = secret_key
@@ -75,8 +84,9 @@ class S3Client:
             str: The name of the created bucket
 
         Raises:
-            BucketAlreadyExistsException: If the bucket already exists
+            BucketAlreadyExists: If the bucket already exists
             BucketCreationFailed: If the bucket could not be created for any other reason
+
         """
         if bucket_name == "":
             bucket_name = generate_unique_resource_name(prefix="bucket")
@@ -105,8 +115,8 @@ class S3Client:
             attempting deletion
 
         Raises:
-            BucketNotEmptyException: If the bucket is not empty and empty_before_deletion is False
-            NoSuchBucketException: If the bucket does not exist
+            BucketNotEmpty: If the bucket is not empty and empty_before_deletion is False
+            NoSuchBucket: If the bucket does not exist
             ClientError: If an unexpected error occurs
 
         """
@@ -185,7 +195,7 @@ class S3Client:
             bucket_name (str): The name of the bucket
             prefix (str): A prefix where the objects will be listed from
             use_v2 (bool): Whether to use list_objects_v2 instead of list_objects
-            raw_output (bool): Whether to return the raw output from the boto3 call or just the object names
+            get_metadata (bool): Whether to return the objects' metadata instead of their names
 
         Returns:
             If get_metadata is False:
@@ -210,7 +220,7 @@ class S3Client:
 
     def put_object(self, bucket_name, object_key, body):
         """
-        Put an object in an S3 bucket using boto3
+        Put an object to an S3 bucket using boto3
 
         Args:
             bucket_name (str): The name of the bucket
@@ -218,7 +228,7 @@ class S3Client:
             body (bytes|file-like object): The data to write to the object
 
         Raises:
-            NoSuchBucketException: If the bucket does not exist
+            NoSuchBucket: If the bucket does not exist
 
         """
         log.info(f"Putting object {object_key} in bucket {bucket_name} via boto3")
@@ -250,7 +260,8 @@ class S3Client:
                 - "ResponseMetadata": a dict containing the response metadata
 
         Raises:
-            NoSuchKeyException: If the object does not exist
+            NoSuchKey: If the object does not exist
+            ClientError: If an unexpected error occurs
 
         """
         log.info(f"Getting object {object_key} from bucket {bucket_name} via boto3")
@@ -259,7 +270,7 @@ class S3Client:
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
                 log.warn(f"Object {object_key} does not exist in bucket {bucket_name}")
-                raise NoSuchKeyException(e)
+                raise NoSuchKey(e)
             else:
                 raise e
 
@@ -296,9 +307,10 @@ class S3Client:
         If the prefix is empty, the entire bucket will be downloaded.
 
         Args:
-            bucket (str): The name of the S3 bucket.
+            bucket_name (str): The name of the S3 bucket.
             local_dir (str): The local directory to download the contents into.
             prefix (str): The S3 prefix to download from (acts like a directory).
+
         """
 
         transfer_config = TransferConfig(use_threads=True)
@@ -371,8 +383,9 @@ class S3Client:
             dict: A dictionary containing the response from the copy operation
 
         Raises:
-            NoSuchBucketException: If the source or destination bucket does not exist
-            NoSuchKeyException: If the source object does not exist
+            NoSuchBucket: If the source or destination bucket does not exist
+            NoSuchKey: If the source object does not exist
+            ClientError: If an unexpected error occurs
 
         """
         log.info(
@@ -395,7 +408,7 @@ class S3Client:
                 log.warn(
                     f"Source object {src_key} does not exist in bucket {src_bucket}"
                 )
-                raise NoSuchKeyException(e)
+                raise NoSuchKey(e)
             else:
                 raise e
 
@@ -461,6 +474,7 @@ class S3Client:
 
         Args:
             bucket_name (str): The name of the S3 bucket.
+
         """
         # TODO: Support buckets with versioning enabled
         log.info(f"Deleting all objects in bucket {bucket_name} via boto3")
