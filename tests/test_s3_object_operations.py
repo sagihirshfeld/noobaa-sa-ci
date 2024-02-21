@@ -46,13 +46,15 @@ class TestS3ObjectOperations:
             put_obj_contents == get_obj_contents
         ), "Retrieved object content does not match"
 
-    def test_delete_object(self, c_scope_s3client):
+    def test_object_deletion(self, c_scope_s3client):
         """
-        Test S3 DeleteObject operation:
+        Test the S3 DeleteObject and DeleteObjects operations:
         1. Put objects to a bucket
-        2. Delete one of the objects
+        2. Delete one of the objects via DeleteObject
         3. Verify the deleted object is no longer listed
-        4. Verify the non deleted objects are still listed
+        4. Delete some of the remaining objects via DeleteObjects
+        5. Verify the deleted objects are no longer listed
+        6. Verify the non deleted objects are still listed
 
         """
         bucket = c_scope_s3client.create_bucket()
@@ -60,7 +62,7 @@ class TestS3ObjectOperations:
         # 1. Put objects to a bucket
         written_objects = c_scope_s3client.put_random_objects(bucket, amount=10)
 
-        # 2. Delete one of the objects
+        # 2. Delete one of the objects via DeleteObject
         c_scope_s3client.delete_object(bucket, written_objects[0])
 
         # 3. Verify the deleted object is no longer listed
@@ -70,37 +72,18 @@ class TestS3ObjectOperations:
             written_objects[0] not in post_deletion_objects
         ), "Deleted object was still listed post deletion"
 
-        # 4. Verify the non deleted objects are still listed
-        assert (
-            written_objects[1:] == post_deletion_objects
-        ), "Non deleted objects were not listed post deletion"
+        # 4. Delete some of the remaining objects via DeleteObjects
+        c_scope_s3client.delete_objects(bucket, written_objects[1:5])
 
-    def test_delete_objects(self, c_scope_s3client):
-        """
-        Test S3 DeleteObjects operation (Note the difference between DeleteObject):
-        1. Put objects to a bucket
-        2. Delete some of the objects using one DeleteObjects operation
-        3. Verify the deleted objects are no longer listed
-        4. Verify the non deleted objects are still listed
-
-        """
-        bucket = c_scope_s3client.create_bucket()
-
-        # 1. Put objects to a bucket
-        written_objects = c_scope_s3client.put_random_objects(bucket, amount=10)
-
-        # 2. Delete some of the objects using one DeleteObjects operation
-        c_scope_s3client.delete_objects(bucket, written_objects[:5])
-
-        # 3. Verify the deleted objects are no longer listed
+        # 5. Verify the deleted objects are no longer listed
         post_deletion_objects = c_scope_s3client.list_objects(bucket)
         assert all(
-            obj not in post_deletion_objects for obj in written_objects[:5]
+            obj not in post_deletion_objects for obj in written_objects[1:5]
         ), "Deleted objects were still listed post deletion"
 
-        # 4. Verify the non deleted objects are still listed
-        assert all(
-            obj in post_deletion_objects for obj in written_objects[5:]
+        # 6. Verify the non deleted objects are still listed
+        assert (
+            written_objects[5:] == post_deletion_objects
         ), "Non deleted objects were not listed post deletion"
 
     def test_copy_object(self, c_scope_s3client):
