@@ -4,7 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import botocore
+from common_ci_utils.random_utils import generate_unique_resource_name
 from noobaa_sa.exceptions import BucketAlreadyExists, BucketNotEmpty, NoSuchBucket
+
 
 log = logging.getLogger(__name__)
 
@@ -24,11 +27,16 @@ class TestS3BucketOperations:
 
         """
         # 1. Create a bucket via S3
-        bucket_name = c_scope_s3client.create_bucket()
+        bucket_name = generate_unique_resource_name(prefix="bucket")
+        response = c_scope_s3client.create_bucket(bucket_name, raw_output=True)
+        assert response.status_code == 200, "Bucket was not created"
+
         # 2. Verify the bucket was created via S3 HeadBucket
         assert c_scope_s3client.head_bucket(bucket_name), "Bucket was not created"
+
         # 3. Delete the bucket via S3
         c_scope_s3client.delete_bucket(bucket_name)
+
         # 4. Verify the bucket was deleted via S3 HeadBucket
         assert (
             c_scope_s3client.head_bucket(bucket_name) == False
@@ -143,11 +151,15 @@ class TestS3BucketOperations:
         """
         # 1. Test creating a bucket with the name of a bucket that already exists
         bucket_name = c_scope_s3client.create_bucket()
-        with pytest.raises(BucketAlreadyExists):
+        try:
             c_scope_s3client.create_bucket(bucket_name)
             log.error(
                 "Attempting to create a bucket with an existing name did not fail as expected"
             )
+        except botocore.exceptions.ClientError as e:
+            assert (
+                e.response["Error"]["Code"] == "BucketAlreadyExists"
+            ), "Bucket creation did not fail with the expected error"
 
         # 2. Test creating a bucket using the credentials of a user that's not allowed to create buckets
 

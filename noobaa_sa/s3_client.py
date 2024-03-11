@@ -72,7 +72,7 @@ class S3Client:
     def secret_key(self):
         return self._secret_key
 
-    def create_bucket(self, bucket_name=""):
+    def create_bucket(self, bucket_name="", raw_output=False):
         """
         Create a bucket in an S3 account using boto3
 
@@ -81,27 +81,22 @@ class S3Client:
                                If not specified, a random name will be generated.
 
         Returns:
-            str: The name of the created bucket
+            if raw_output is False:
+                str: The name of the created bucket
+            if raw_output is True:
+                dict: The raw response from the create_bucket call
 
         Raises:
-            BucketAlreadyExists: If the bucket already exists
-            BucketCreationFailed: If the bucket could not be created for any other reason
+            botocore.exceptions.ParamValidationError: If the bucket name is invalid
+            botocore.exceptions.ClientError: If the bucket already exists or if an unexpected error occurs
 
         """
         if bucket_name == "":
             bucket_name = generate_unique_resource_name(prefix="bucket")
         log.info(f"Creating bucket {bucket_name} via boto3")
-        try:
-            response = self._boto3_client.create_bucket(Bucket=bucket_name)
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "BucketAlreadyExists":
-                raise BucketAlreadyExists(e)
-        if "Location" not in response:
-            raise BucketCreationFailed(
-                f"Could not create bucket {bucket_name}. Response: {response}"
-            )
+        response = self._boto3_client.create_bucket(Bucket=bucket_name)
         log.info(f"Bucket {bucket_name} created successfully")
-        return bucket_name
+        return response if raw_output else bucket_name
 
     def delete_bucket(self, bucket_name, empty_before_deletion=False):
         """
