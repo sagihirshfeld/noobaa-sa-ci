@@ -29,18 +29,20 @@ class TestS3BucketOperations:
         # 1. Create a bucket via S3
         bucket_name = generate_unique_resource_name(prefix="bucket")
         response = c_scope_s3client.create_bucket(bucket_name, raw_output=True)
-        assert response.status_code == 200, "Bucket was not created"
+        assert (
+            response["ResponseMetadata"]["HTTPStatusCode"] == 200
+        ), "Bucket was not created"
 
         # 2. Verify the bucket was created via S3 HeadBucket
-        assert c_scope_s3client.head_bucket(bucket_name), "Bucket was not created"
+        response = c_scope_s3client.head_bucket(bucket_name)
+        assert response["Code"] == 200, "Bucket was not created"
 
         # 3. Delete the bucket via S3
         c_scope_s3client.delete_bucket(bucket_name)
 
         # 4. Verify the bucket was deleted via S3 HeadBucket
-        assert (
-            c_scope_s3client.head_bucket(bucket_name) == False
-        ), "Bucket was not deleted"
+        response = c_scope_s3client.head_bucket(bucket_name)
+        assert response["Code"] == 404, "Bucket was not deleted"
 
     def test_list_buckets(self, c_scope_s3client):
         """

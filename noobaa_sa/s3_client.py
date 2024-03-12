@@ -145,28 +145,25 @@ class S3Client:
             bucket_name (str): The name of the bucket to check
 
             Returns:
-                bool: True if the bucket exists, False otherwise
-
-        Raises:
-            UnexpectedBehaviour: If an unexpected response is received
-
+                dict: A dictionary containing the response from the head_bucket call.
+                      Since the structure of the response dict is different on failed calls (ClientError),
+                      the Code key is added to the root of the dictionary to allow uniform handling.
         """
+        response_dict = {}
         log.info("Checking if bucket exists via an head_bucket call")
         try:
-            response = self._boto3_client.head_bucket(Bucket=bucket_name)
-            response_code = int(response["ResponseMetadata"]["HTTPStatusCode"])
-        except ClientError as e:
-            response_code = int(e.response["Error"]["Code"])
-        if response_code == 200:
-            log.info(f"head_bucket call to {bucket_name} returned 200 (OK)")
-            return True
-        elif response_code == 404:
-            log.warn(f"head_bucket call to {bucket_name} returned 404 (Not Found)")
-            return False
-        else:
-            raise UnexpectedBehaviour(
-                f"Unexpected response from head_bucket call to {bucket_name}: {response}"
+            response_dict = self._boto3_client.head_bucket(Bucket=bucket_name)
+            response_dict["Code"] = int(
+                response_dict["ResponseMetadata"]["HTTPStatusCode"]
             )
+        except ClientError as e:
+            response_dict["Code"] = int(e.response["Error"]["Code"])
+            log.warn(f"head_bucket call resulted with a ClientError: {e}")
+        except Exception as e:
+            response_dict["Code"] = -1
+            log.error(f"head_bucket failed with an unexpected error: {e}")
+            raise UnexpectedBehaviour(e)
+        return response_dict
 
     def list_buckets(self):
         """
