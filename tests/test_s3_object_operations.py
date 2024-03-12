@@ -26,7 +26,7 @@ class TestS3ObjectOperations:
         3. Compare the retrieved object content to the original
 
         """
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Put an object to a bucket
         put_obj_contents = generate_random_hex(500)
@@ -52,7 +52,7 @@ class TestS3ObjectOperations:
         6. Verify the non deleted objects are still listed
 
         """
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Put objects to a bucket
         written_objects = c_scope_s3client.put_random_objects(bucket, amount=10)
@@ -91,8 +91,8 @@ class TestS3ObjectOperations:
         5. Verify the copied object content matches the original
 
         """
-        bucket_a = c_scope_s3client.create_bucket()
-        bucket_b = c_scope_s3client.create_bucket()
+        bucket_a = c_scope_s3client.create_bucket()["BucketName"]
+        bucket_b = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Put an object to a bucket
         obj_name = generate_unique_resource_name(prefix="obj")
@@ -142,7 +142,7 @@ class TestS3ObjectOperations:
         origin_dir, results_dir = tmp_directories_factory(
             dirs_to_create=["origin", "result"]
         )
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Put random objects to a bucket
         original_objs_names = c_scope_s3client.put_random_objects(
@@ -177,7 +177,7 @@ class TestS3ObjectOperations:
         2. Attempt getting a non existing object
 
         """
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Attempt putting an object to a non existing bucket
         with pytest.raises(NoSuchBucket):
@@ -203,7 +203,7 @@ class TestS3ObjectOperations:
         3. Attempt copying a non existing object
 
         """
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
         obj_key = generate_unique_resource_name(prefix="obj")
         c_scope_s3client.put_object(bucket, obj_key, body="body")
 

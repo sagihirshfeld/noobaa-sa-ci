@@ -53,7 +53,7 @@ class TestS3BucketOperations:
         AMOUNT = 5
         try:
             for _ in range(AMOUNT):
-                buckets.append(c_scope_s3client.create_bucket())
+                buckets.append(c_scope_s3client.create_bucket()["BucketName"])
 
             listed_buckets = c_scope_s3client.list_buckets()
 
@@ -99,7 +99,7 @@ class TestS3BucketOperations:
 
         """
         origin_dir = tmp_directories_factory(dirs_to_create=["origin"])[0]
-        bucket = c_scope_s3client.create_bucket()
+        bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Write random objects to a bucket
         written_objs_names = c_scope_s3client.put_random_objects(
@@ -152,16 +152,11 @@ class TestS3BucketOperations:
 
         """
         # 1. Test creating a bucket with the name of a bucket that already exists
-        bucket_name = c_scope_s3client.create_bucket()
-        try:
-            c_scope_s3client.create_bucket(bucket_name)
-            log.error(
-                "Attempting to create a bucket with an existing name did not fail as expected"
-            )
-        except botocore.exceptions.ClientError as e:
-            assert (
-                e.response["Error"]["Code"] == "BucketAlreadyExists"
-            ), "Bucket creation did not fail with the expected error"
+        bucket_name = c_scope_s3client.create_bucket()["BucketName"]
+        response = c_scope_s3client.create_bucket(bucket_name)
+        assert (
+            response["Code"] == "BucketAlreadyExists"
+        ), "Bucket creation did not fail with the expected error"
 
         # 2. Test creating a bucket using the credentials of a user that's not allowed to create buckets
 
@@ -195,7 +190,7 @@ class TestS3BucketOperations:
 
         # 2.  Test deleting a non empty bucket
         with pytest.raises(BucketNotEmpty):
-            bucket_name = c_scope_s3client.create_bucket()
+            bucket_name = c_scope_s3client.create_bucket()["BucketName"]
             c_scope_s3client.put_random_objects(bucket_name, amount=1)
             c_scope_s3client.delete_bucket(bucket_name)
             log.error(

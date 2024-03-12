@@ -72,7 +72,7 @@ class S3Client:
     def secret_key(self):
         return self._secret_key
 
-    def create_bucket(self, bucket_name="", raw_output=False):
+    def create_bucket(self, bucket_name=""):
         """
         Create a bucket in an S3 account using boto3
 
@@ -81,22 +81,23 @@ class S3Client:
                                If not specified, a random name will be generated.
 
         Returns:
-            if raw_output is False:
-                str: The name of the created bucket
-            if raw_output is True:
-                dict: The raw response from the create_bucket call
-
-        Raises:
-            botocore.exceptions.ParamValidationError: If the bucket name is invalid
-            botocore.exceptions.ClientError: If the bucket already exists or if an unexpected error occurs
-
+            dict: A dictionary containing the response from the create_bucket call.
+                  Also includes the added BucketName and Code keys at the root level.
         """
+        response_dict = {}
         if bucket_name == "":
             bucket_name = generate_unique_resource_name(prefix="bucket")
         log.info(f"Creating bucket {bucket_name} via boto3")
-        response = self._boto3_client.create_bucket(Bucket=bucket_name)
-        log.info(f"Bucket {bucket_name} created successfully")
-        return response if raw_output else bucket_name
+        try:
+            response_dict = self._boto3_client.create_bucket(Bucket=bucket_name)
+            response_dict["Code"] = response_dict["ResponseMetadata"]["HTTPStatusCode"]
+            log.info(f"Bucket {bucket_name} created successfully")
+        except ClientError as e:
+            response_dict = e.response
+            response_dict["Code"] = e.response["Error"]["Code"]
+            log.warn(f"Failed to create bucket {bucket_name}: {e}")
+        response_dict["BucketName"] = bucket_name
+        return response_dict
 
     def delete_bucket(self, bucket_name, empty_before_deletion=False):
         """
@@ -146,8 +147,7 @@ class S3Client:
 
             Returns:
                 dict: A dictionary containing the response from the head_bucket call.
-                      Since the structure of the response dict is different on failed calls (ClientError),
-                      the Code key is added to the root of the dictionary to allow uniform handling.
+                      Also includes the added Code key at the root level.
         """
         response_dict = {}
         log.info("Checking if bucket exists via an head_bucket call")
@@ -158,11 +158,7 @@ class S3Client:
             )
         except ClientError as e:
             response_dict["Code"] = int(e.response["Error"]["Code"])
-            log.warn(f"head_bucket call resulted with a ClientError: {e}")
-        except Exception as e:
-            response_dict["Code"] = -1
-            log.error(f"head_bucket failed with an unexpected error: {e}")
-            raise UnexpectedBehaviour(e)
+            log.warn(f"head_bucket on {bucket_name} resulted with a ClientError: {e}")
         return response_dict
 
     def list_buckets(self):
