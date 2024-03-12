@@ -30,13 +30,19 @@ class TestS3ObjectOperations:
 
         # 1. Put an object to a bucket
         put_obj_contents = generate_random_hex(500)
-        c_scope_s3client.put_object(bucket, "random_str.txt", body=put_obj_contents)
+        response = c_scope_s3client.put_object(
+            bucket, "random_str.txt", body=put_obj_contents
+        )
+        code = response["Code"]
+        assert code == 200, f"put_object failed with response code {code}"
 
         # 2. Get the object from the bucket
         response = c_scope_s3client.get_object(bucket, "random_str.txt")
-        get_obj_contents = response["Body"].read().decode("utf-8")
+        code = response["Code"]
+        assert code == 200, f"get_object failed with response code {code}"
 
         # 3. Compare the retrieved object content to the original
+        get_obj_contents = response["Body"].read().decode("utf-8")
         assert (
             put_obj_contents == get_obj_contents
         ), "Retrieved object content does not match"
@@ -58,23 +64,28 @@ class TestS3ObjectOperations:
         written_objects = c_scope_s3client.put_random_objects(bucket, amount=10)
 
         # 2. Delete one of the objects via DeleteObject
-        c_scope_s3client.delete_object(bucket, written_objects[0])
+        response = c_scope_s3client.delete_object(bucket, written_objects[0])
+        assert (
+            response["Code"] == 204
+        ), f"delete_object resulted in an unexpected response: {response}"
 
         # 3. Verify the deleted object is no longer listed
-        post_deletion_objects = c_scope_s3client.list_objects(bucket)
-
+        post_deletion_objects = c_scope_s3client.list_objects(bucket)["ObjectNames"]
         assert (
             written_objects[0] not in post_deletion_objects
-        ), "Deleted object was still listed post deletion"
+        ), "Deleted object was still listed after deletion via delete_object"
 
         # 4. Delete some of the remaining objects via DeleteObjects
-        c_scope_s3client.delete_objects(bucket, written_objects[1:5])
+        response = c_scope_s3client.delete_objects(bucket, written_objects[1:5])
+        assert (
+            response["Code"] == 200
+        ), f"delete_objects resulted in an unexpected response: {response}"
 
         # 5. Verify the deleted objects are no longer listed
-        post_deletion_objects = c_scope_s3client.list_objects(bucket)
+        post_deletion_objects = c_scope_s3client.list_objects(bucket)["ObjectNames"]
         assert all(
             obj not in post_deletion_objects for obj in written_objects[1:5]
-        ), "Deleted objects were still listed post deletion"
+        ), "Deleted objects were still listed post deletion via delete_objects"
 
         # 6. Verify the non deleted objects are still listed
         assert (
@@ -180,20 +191,20 @@ class TestS3ObjectOperations:
         bucket = c_scope_s3client.create_bucket()["BucketName"]
 
         # 1. Attempt putting an object to a non existing bucket
-        with pytest.raises(NoSuchBucket):
-            c_scope_s3client.put_object(
-                bucket_name="non-existant-bucket", object_key="obj", body="body"
-            )
-            log.error(
-                "Attempting to put an object on a non existing bucket did not fail as expected"
-            )
+        response = c_scope_s3client.put_object(
+            bucket_name="non-existant-bucket", object_key="obj", body="body"
+        )
+        assert response["Code"] == "NoSuchBucket", (
+            "Attempting to put an object on a non existing bucket did not fail as expected",
+            response,
+        )
 
         # 2. Attempt getting a non existing object
-        with pytest.raises(NoSuchKey):
-            c_scope_s3client.get_object(bucket, "non_existing_obj")
-            log.error(
-                "Attempting to get a non existing object did not fail as expected"
-            )
+        response = c_scope_s3client.get_object(bucket, "non_existing_obj")
+        assert response["Code"] == "NoSuchKey", (
+            "Attempting to get a non existing object did not fail as expected",
+            response,
+        )
 
     def test_expected_copy_failures(self, c_scope_s3client):
         """
@@ -207,38 +218,38 @@ class TestS3ObjectOperations:
         obj_key = generate_unique_resource_name(prefix="obj")
         c_scope_s3client.put_object(bucket, obj_key, body="body")
 
-        # 1. Attempt copying from a non existing bucket
-        with pytest.raises(NoSuchBucket):
-            c_scope_s3client.copy_object(
-                src_bucket="non_existing_bucket",
-                src_key="non_existing_obj",
-                dest_bucket=bucket,
-                dest_key="dest_key",
-            )
-            log.error(
-                "Attempting to copy from a non existing bucket did not fail as expected"
-            )
+        # 1. Attempt copying FROM a non existing bucket
+        response = c_scope_s3client.copy_object(
+            src_bucket="non_existing_bucket",
+            src_key="non_existing_obj",
+            dest_bucket=bucket,
+            dest_key="dest_key",
+        )
+        assert response["Code"] == "NoSuchBucket", (
+            "Attempting to copy from a non existing bucket did not fail as expected",
+            response,
+        )
 
-        # 2. Attempt copying an object to a non existing bucket
-        with pytest.raises(NoSuchBucket):
-            c_scope_s3client.copy_object(
-                src_bucket=bucket,
-                src_key=obj_key,
-                dest_bucket="non_existing_bucket",
-                dest_key="dest_key",
-            )
-            log.error(
-                "Attempting to copy to a non existing bucket did not fail as expected"
-            )
+        # 2. Attempt copying an object TO a non existing bucket
+        response = c_scope_s3client.copy_object(
+            src_bucket=bucket,
+            src_key=obj_key,
+            dest_bucket="non_existing_bucket",
+            dest_key="dest_key",
+        )
+        assert response["Code"] == "NoSuchBucket", (
+            "Attempting to copy to a non existing bucket did not fail as expected",
+            response,
+        )
 
         # 3. Attempt copying a non existing object
-        with pytest.raises(NoSuchKey):
-            c_scope_s3client.copy_object(
-                src_bucket=bucket,
-                src_key="non_existing_obj",
-                dest_bucket=bucket,
-                dest_key="dest_key",
-            )
-            log.error(
-                "Attempting to copy a non existing object did not fail as expected"
-            )
+        response = c_scope_s3client.copy_object(
+            src_bucket=bucket,
+            src_key="non_existing_obj",
+            dest_bucket=bucket,
+            dest_key="dest_key",
+        )
+        assert response["Code"] == "NoSuchKey", (
+            "Attempting to copy a non existing object did not fail as expected",
+            response,
+        )
