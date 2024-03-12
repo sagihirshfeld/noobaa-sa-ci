@@ -61,9 +61,9 @@ class TestS3BucketOperations:
             listed_buckets = c_scope_s3client.list_buckets()["BucketNames"]
 
             # listed_buckets might contain buckets from before the test
-            assert all(
-                bucket in listed_buckets for bucket in buckets
-            ), "Created bucket was not listed!"
+            assert set(buckets).issubset(
+                set(listed_buckets)
+            ), "Created buckets were not listed!"
 
             log.info("Deleting one of the buckets")
             c_scope_s3client.delete_bucket(buckets[-1])
