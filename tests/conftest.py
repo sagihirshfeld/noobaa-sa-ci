@@ -19,6 +19,7 @@ from utility.utils import (
     get_current_test_name,
 )
 from utility.nsfs_server_utils import (
+    redirect_nsfs_to_use_config_dir,
     restart_nsfs_service,
     create_tls_key_and_cert,
     set_nsfs_service_certs_dir,
@@ -60,10 +61,18 @@ def setup_nsfs_server_tls_cert():
     config_root_path = get_config_root_full_path()
     remote_credentials_dir = f"{config_root_path}/certificates"
 
+    # Loosen the permissions on the config root dir for necessary file commands
+    _, stdout, _ = conn.exec_cmd(f"stat -c '%a' {config_root_path}")
+    if stdout != "777":
+        conn.exec_cmd(f"sudo chmod 777 {config_root_path}")
+
+    # Ensure the NSFS service knows where to look for the credentials
+    redirect_nsfs_to_use_config_dir(config_root_path)
+
     # Create the TLS credentials and configure the NSFS service to use them
     conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
     remote_tls_crt_path = create_tls_key_and_cert(remote_credentials_dir)
-    set_nsfs_service_certs_dir(remote_credentials_dir)
+    set_nsfs_service_certs_dir(remote_credentials_dir, config_root_path)
     restart_nsfs_service()
 
     # Download the certificate to a local file

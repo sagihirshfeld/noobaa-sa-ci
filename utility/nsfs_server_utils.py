@@ -155,3 +155,24 @@ def set_nsfs_service_certs_dir(creds_dir, config_root=config.ENV_DATA["config_ro
     system_json = json.loads(stdout)
     system_json["nsfs_ssl_key_dir"] = creds_dir
     conn.exec_cmd(f"echo '{json.dumps(system_json)}' > {config_root}/system.json")
+
+
+def redirect_nsfs_to_use_config_dir(config_root):
+    """
+    Prepare a dir to be used as the config root for the NSFS service
+    in the CI
+
+    Args:
+        config_root (str): The full path to the config dir on the remote machine
+
+    """
+    conn = SSHConnectionManager().connection
+
+    # The presence of the system.json file in the dir
+    # indicates that the NSFS service can it as the config root
+    _, stdout, _ = conn.exec_cmd(f"sudo ls {config_root}")
+    if "system.json" not in stdout:
+        conn.exec_cmd(
+            f"echo '{config_root}' | sudo tee /etc/noobaa.conf.d/config_dir_redirect"
+        )
+        restart_nsfs_service()
