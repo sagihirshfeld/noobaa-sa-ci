@@ -5,14 +5,17 @@ Utility functions to run on the remote machine that hosts the NSFS server
 
 import json
 import logging
+import os
 import tempfile
 
+from common_ci_utils.file_system_utils import compare_md5sums
 from common_ci_utils.templating import Templating
 
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
 from noobaa_sa.exceptions import MissingFileOrDirectoryException
+from noobaa_sa.s3_client import S3Client
 
 log = logging.getLogger(__name__)
 
@@ -130,7 +133,7 @@ def create_tls_key_and_cert(credentials_dir):
     return f"{credentials_dir}/tls.crt"
 
 
-def set_nsfs_service_certs_dir(creds_dir, config_root=config.ENV_DATA["config_root"]):
+def set_nsfs_certs_dir(creds_dir, config_root=config.ENV_DATA["config_root"]):
     """
     Edit the NSFS system.json file to specify the path to the TLS key and certificate
 
@@ -155,3 +158,76 @@ def set_nsfs_service_certs_dir(creds_dir, config_root=config.ENV_DATA["config_ro
     system_json = json.loads(stdout)
     system_json["nsfs_ssl_key_dir"] = creds_dir
     conn.exec_cmd(f"echo '{json.dumps(system_json)}' > {config_root}/system.json")
+
+
+def setup_nsfs_tls_cert(config_root):
+    """
+    Configure the NSFS server TLS certification and download the certificate
+    in a local file.
+
+    Args:
+        config_root (str): The path to the configuration root directory.
+
+    """
+
+    conn = SSHConnectionManager().connection
+    remote_credentials_dir = f"{config_root}/certificates"
+
+    # Create the TLS credentials and configure the NSFS service to use them
+    conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
+    remote_tls_crt_path = create_tls_key_and_cert(remote_credentials_dir)
+    set_nsfs_certs_dir(remote_credentials_dir, config_root)
+    restart_nsfs_service()
+
+    # Download the certificate to a local file
+    with tempfile.NamedTemporaryFile(
+        prefix="tls_", suffix=".crt", delete=False
+    ) as local_tls_crt_file:
+        conn.download_file(
+            remotepath=remote_tls_crt_path,
+            localpath=local_tls_crt_file.name,
+        )
+
+    S3Client.static_tls_crt_path = local_tls_crt_file.name
+
+
+def check_nsfs_tls_cert_setup(config_root):
+    """
+    Check whether the CI has the NSFS server TLS certificate.
+
+    Args:
+        config_root (str): The full path of the configuration root directory.
+
+    Returns:
+        bool: True if the local and remote TLS certificates exist and are identical,
+              False otherwise.
+
+    """
+    conn = SSHConnectionManager().connection
+
+    # Check if the local TLS certificate file exists
+    if not hasattr(S3Client, "static_tls_crt_path"):
+        log.info("Local NSFS server TLS certificate path was yet stored")
+        return False
+
+    if not os.path.exists(S3Client.static_tls_crt_path):
+        log.info(
+            f"The local NSFS server TLS certificate was not found under {S3Client.static_tls_crt_path}"
+        )
+        return False
+
+    # Check if a TLS certificate file exists on the remote machine under the config root
+    retcode, _, _ = conn.exec_cmd(f"[ -d '{config_root}/certificates/tls.crt/' ]")
+    if retcode != 0:
+        log.info(
+            f"NSFS server TLS certificate was not found under {config_root}/certificates"
+        )
+        return False
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        local_tls_crt_file = f"{tmp_dir}/tls.crt"
+        conn.download_file(
+            remotepath=f"{config_root}/certificates/tls.crt",
+            localpath=f"{tmp_dir}/tls.crt",
+        )
+        return compare_md5sums(local_tls_crt_file, S3Client.static_tls_crt_path)

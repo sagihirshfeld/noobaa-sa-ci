@@ -9,4 +9,4 @@ NSFS_SERVICE_NAME = "noobaa_nsfs"
 DEFAULT_FS_BACKEND = "GPFS"
 UNWANTED_LOG = "2>/dev/null"
 DEFAULT_NSFS_PORT = 6443
-DEFAULT_CONFIG_ROOT_PATH = "/etc/noobaa.conf.d/config_root"
+DEFAULT_CONFIG_ROOT_PATH = "/etc/noobaa.conf.d"
