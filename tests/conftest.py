@@ -15,11 +15,10 @@ from noobaa_sa.bucket import BucketManager
 from framework import config
 from noobaa_sa.s3_client import S3Client
 from utility.utils import (
-    get_config_root_full_path,
+    get_env_config_root_full_path,
     get_current_test_name,
 )
 from utility.nsfs_server_utils import (
-    redirect_nsfs_to_use_config_dir,
     restart_nsfs_service,
     create_tls_key_and_cert,
     set_nsfs_service_certs_dir,
@@ -48,7 +47,41 @@ def bucket_manager(request):
 
 
 @pytest.fixture(scope="session")
-def setup_nsfs_server_tls_cert():
+def setup_nsfs_server_config_root():
+    """
+    Make sure the NSFS server is configured to use a custom config root directory
+    if one was provided in the CI configuration.
+
+    """
+    conn = SSHConnectionManager().connection
+    env_config_root_path = get_env_config_root_full_path()
+
+    # Check if the provided config root path exists on the remote machine
+    retcode, _, _ = conn.exec_cmd(f"sudo ls {env_config_root_path}")
+    if retcode != 0:
+        raise FileNotFoundError(
+            f"Config root path '{env_config_root_path}' not found on the remote machine"
+        )
+
+    # If the config root path is different from the default, update the NSFS service
+    if env_config_root_path != constants.DEFAULT_CONFIG_ROOT_PATH:
+        # Loosen the permissions on the config root dir for necessary file commands
+        _, stdout, _ = conn.exec_cmd(f"stat -c '%a' {env_config_root_path}")
+        if stdout != "777":
+            conn.exec_cmd(f"sudo chmod 777 {env_config_root_path}")
+
+        # The presence of the system.json file in the dir
+        # indicates that the NSFS service uses it as the config root
+        _, stdout, _ = conn.exec_cmd(f"sudo ls {env_config_root_path}")
+        if "system.json" not in stdout:
+            conn.exec_cmd(
+                f"echo '{env_config_root_path}' | sudo tee /etc/noobaa.conf.d/config_dir_redirect"
+            )
+            restart_nsfs_service()
+
+
+@pytest.fixture(scope="session")
+def setup_nsfs_server_tls_cert(setup_nsfs_server_config_root):
     """
     Configure the NSFS server TLS certification and download the certificate
     in a local file.
@@ -58,16 +91,8 @@ def setup_nsfs_server_tls_cert():
 
     """
     conn = SSHConnectionManager().connection
-    config_root_path = get_config_root_full_path()
+    config_root_path = get_env_config_root_full_path()
     remote_credentials_dir = f"{config_root_path}/certificates"
-
-    # Loosen the permissions on the config root dir for necessary file commands
-    _, stdout, _ = conn.exec_cmd(f"stat -c '%a' {config_root_path}")
-    if stdout != "777":
-        conn.exec_cmd(f"sudo chmod 777 {config_root_path}")
-
-    # Ensure the NSFS service knows where to look for the credentials
-    redirect_nsfs_to_use_config_dir(config_root_path)
 
     # Create the TLS credentials and configure the NSFS service to use them
     conn.exec_cmd(f"sudo mkdir -p {remote_credentials_dir}")
