@@ -40,9 +40,10 @@ def get_current_test_name():
     return os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
 
-def get_config_root_full_path():
+def get_env_config_root_full_path():
     """
-    Get the full path of the configuration root directory on the remote machine
+    Get the full path of directory that's specified as the config_root
+    in under ENV_DATA in the CI's configuration
 
     Returns:
         str: The full path of the configuration root directory on the remote
