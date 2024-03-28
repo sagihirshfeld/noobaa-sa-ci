@@ -72,24 +72,27 @@ class S3Client:
     def secret_key(self):
         return self._secret_key
 
-    def create_bucket(self, bucket_name=""):
+    def create_bucket(self, bucket_name="", get_response=False):
         """
         Create a bucket in an S3 account using boto3
 
         Args:
             bucket_name (str): The name of the bucket to create.
                                If not specified, a random name will be generated.
+            get_response (bool): Whether to return the response dictionary or the bucket name
 
         Returns:
-            dict: A dictionary containing the response from the create_bucket call.
-                  Also includes the added BucketName and Code keys at the root level.
+            dict|str: A dictionary containing the response from the create_bucket call.
+                      Also includes the added Code key at the root level.
+                      If get_response is False, returns the name of the created bucket.
+
         """
         if bucket_name == "":
             bucket_name = generate_unique_resource_name(prefix="bucket")
         log.info(f"Creating bucket {bucket_name} via boto3")
         response_dict = self._exec_boto3_method("create_bucket", Bucket=bucket_name)
-        response_dict["BucketName"] = bucket_name
-        return response_dict
+
+        return response_dict if get_response else bucket_name
 
     def delete_bucket(self, bucket_name, empty_before_deletion=False):
         """
@@ -128,13 +131,18 @@ class S3Client:
         response_dict = self._exec_boto3_method("head_bucket", Bucket=bucket_name)
         return response_dict
 
-    def list_buckets(self):
+    def list_buckets(self, get_response=False):
         """
         List buckets in an S3 account using boto3
 
+        Args:
+            get_response (bool): Whether to return the response dictionary or
+                                 a list of bucket names
+
         Returns:
-            dict: A dictionary containing the response from the list_buckets call.
-                  Also includes the added BucketNames and Code keys at the root level.
+            dict|list: A dictionary containing the response from the list_buckets call.
+                       Also includes the added Code key at the root level.
+                       If get_response is False, returns a list of bucket names.
 
         """
         log.info("Listing buckets via boto3")
@@ -144,9 +152,9 @@ class S3Client:
         ]
         log.info(f"Listed buckets: {listed_buckets}")
         response_dict["BucketNames"] = listed_buckets
-        return response_dict
+        return response_dict if get_response else listed_buckets
 
-    def list_objects(self, bucket_name, prefix="", use_v2=False):
+    def list_objects(self, bucket_name, prefix="", use_v2=False, get_response=False):
         """
         List objects in an S3 bucket using boto3
 
@@ -154,7 +162,7 @@ class S3Client:
             bucket_name (str): The name of the bucket
             prefix (str): A prefix where the objects will be listed from
             use_v2 (bool): Whether to use list_objects_v2 instead of list_objects
-            get_metadata (bool): Whether to return the objects' metadata instead of their names
+            get_response (bool): Whether to return the response dictionary or a list of object names
 
         Returns:
             dict: A dictionary containing the response from the list_objects call.
@@ -169,7 +177,7 @@ class S3Client:
         listed_obs = [obj["Key"] for obj in response_dict.get("Contents", [])]
         response_dict["ObjectNames"] = listed_obs
         log.info(f"Listed objects: {listed_obs}")
-        return response_dict
+        return response_dict if get_response else listed_obs
 
     def put_object(self, bucket_name, object_key, body):
         """
@@ -325,7 +333,7 @@ class S3Client:
 
         log.info(f"Downloading s3:///{bucket_name}/{prefix} to {local_dir} via boto3")
         # List objects within the specified prefix
-        for obj in self.list_objects(bucket_name, prefix, use_v2=True)["ObjectNames"]:
+        for obj in self.list_objects(bucket_name, prefix, use_v2=True):
             # Construct the full local path
             relative_path = os.path.relpath(obj, prefix)
             local_file_path = os.path.join(local_dir, relative_path)

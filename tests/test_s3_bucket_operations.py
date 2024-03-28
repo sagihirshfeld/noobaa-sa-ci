@@ -28,7 +28,7 @@ class TestS3BucketOperations:
         """
         # 1. Create a bucket via S3
         bucket_name = generate_unique_resource_name(prefix="bucket")
-        response = c_scope_s3client.create_bucket(bucket_name)
+        response = c_scope_s3client.create_bucket(bucket_name, get_response=True)
         assert (
             response["ResponseMetadata"]["HTTPStatusCode"] == 200
         ), f"create_bucket failed with an unexpected response: {response}"
@@ -56,9 +56,9 @@ class TestS3BucketOperations:
         AMOUNT = 5
         try:
             for _ in range(AMOUNT):
-                buckets.append(c_scope_s3client.create_bucket()["BucketName"])
+                buckets.append(c_scope_s3client.create_bucket())
 
-            listed_buckets = c_scope_s3client.list_buckets()["BucketNames"]
+            listed_buckets = c_scope_s3client.list_buckets()
 
             # listed_buckets might contain buckets from before the test
             assert set(buckets).issubset(
@@ -67,7 +67,7 @@ class TestS3BucketOperations:
 
             log.info("Deleting one of the buckets")
             c_scope_s3client.delete_bucket(buckets[-1])
-            listed_buckets = c_scope_s3client.list_buckets()["BucketNames"]
+            listed_buckets = c_scope_s3client.list_buckets()
             assert (
                 buckets[-1] not in listed_buckets
             ), "Deleted bucket was still listed post deletion!"
@@ -79,7 +79,7 @@ class TestS3BucketOperations:
             for i in range(AMOUNT - 1):
                 c_scope_s3client.delete_bucket(buckets[i])
 
-            listed_buckets = c_scope_s3client.list_buckets()["BucketNames"]
+            listed_buckets = c_scope_s3client.list_buckets()
             assert all(
                 bucket not in listed_buckets for bucket in buckets
             ), "Some buckets that were supposed to be deleted were still listed"
@@ -103,7 +103,7 @@ class TestS3BucketOperations:
 
         """
         origin_dir = tmp_directories_factory(dirs_to_create=["origin"])[0]
-        bucket = c_scope_s3client.create_bucket()["BucketName"]
+        bucket = c_scope_s3client.create_bucket()
 
         # 1. Write random objects to a bucket
         written_objs_names = c_scope_s3client.put_random_objects(
@@ -111,7 +111,9 @@ class TestS3BucketOperations:
         )
 
         # 2. List the objects in the bucket
-        response = c_scope_s3client.list_objects(bucket, use_v2=use_v2)
+        response = c_scope_s3client.list_objects(
+            bucket, use_v2=use_v2, get_response=True
+        )
         assert (
             response["Code"] == 200
         ), f"list_objects failed with an unexpected response: {response}"
@@ -159,8 +161,8 @@ class TestS3BucketOperations:
 
         """
         # 1. Test creating a bucket with the name of a bucket that already exists
-        bucket_name = c_scope_s3client.create_bucket()["BucketName"]
-        response = c_scope_s3client.create_bucket(bucket_name)
+        bucket_name = c_scope_s3client.create_bucket()
+        response = c_scope_s3client.create_bucket(bucket_name, get_response=True)
         assert (
             response["Code"] == "BucketAlreadyExists"
         ), "Bucket creation did not fail with the expected error"
@@ -195,8 +197,8 @@ class TestS3BucketOperations:
             response,
         )
 
-        # 2.  Test deleting a non empty bucket
-        bucket_name = c_scope_s3client.create_bucket()["BucketName"]
+        # 2. Test deleting a non empty bucket
+        bucket_name = c_scope_s3client.create_bucket()
         c_scope_s3client.put_random_objects(bucket_name, amount=1)
         response = c_scope_s3client.delete_bucket(bucket_name)
         assert response["Code"] == "BucketNotEmpty", (
