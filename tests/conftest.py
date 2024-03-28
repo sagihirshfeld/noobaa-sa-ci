@@ -118,7 +118,9 @@ def s3_client_factory_class(set_nsfs_server_config_root, account_manager_class):
         func: A function that creates S3Client instances.
 
     """
-    return s3_client_factory_implementation(account_manager_class)
+    return s3_client_factory_implementation(
+        set_nsfs_server_config_root, account_manager_class
+    )
 
 
 @pytest.fixture(scope="function")
@@ -134,10 +136,12 @@ def s3_client_factory(set_nsfs_server_config_root, account_manager):
         func: A function that creates S3Client instances.
 
     """
-    return s3_client_factory_implementation(account_manager)
+    return s3_client_factory_implementation(
+        set_nsfs_server_config_root, account_manager
+    )
 
 
-def s3_client_factory_implementation(account_manager):
+def s3_client_factory_implementation(set_nsfs_server_config_root, account_manager):
     """
     Factory to create S3Client instances with given credentials.
 
