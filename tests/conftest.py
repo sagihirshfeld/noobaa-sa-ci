@@ -49,7 +49,7 @@ def bucket_manager(request):
 
     def bucket_cleanup():
         for bucket in bucket_manager.list():
-            bucket_manager.delete(bucket)
+            bucket_manager.delete(bucket, force=True)
 
     request.addfinalizer(bucket_cleanup)
     return bucket_manager
