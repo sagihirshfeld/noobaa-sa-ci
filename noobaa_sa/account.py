@@ -7,23 +7,19 @@ import os
 import tempfile
 from abc import ABC, abstractmethod
 
+from common_ci_utils.random_utils import generate_unique_resource_name
 from common_ci_utils.templating import Templating
 
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
-from noobaa_sa.defaults import MANAGE_NSFS
 from noobaa_sa import constants
+from noobaa_sa.defaults import MANAGE_NSFS
 from noobaa_sa.exceptions import (
     AccountCreationFailed,
     AccountDeletionFailed,
     AccountListFailed,
 )
-from utility.utils import get_noobaa_sa_host_home_path
-
-from common_ci_utils.random_utils import (
-    generate_random_hex,
-    generate_unique_resource_name,
-)
+from utility.utils import generate_random_key, get_noobaa_sa_host_home_path
 
 log = logging.getLogger(__name__)
 
@@ -70,10 +66,6 @@ class NSFSAccount(Account):
         account_name="",
         access_key="",
         secret_key="",
-        email="",
-        allow_bucket_creation=True,
-        uid=0,
-        gid=0,
         config_root=None,
         fs_backend=constants.DEFAULT_FS_BACKEND,
     ):
@@ -103,11 +95,9 @@ class NSFSAccount(Account):
         if not account_name:
             account_name = generate_unique_resource_name(prefix="account")
         if not access_key:
-            access_key = generate_random_hex()
+            access_key = generate_random_key(constants.EXPECTED_ACCESS_KEY_LEN)
         if not secret_key:
-            secret_key = generate_random_hex()
-        if not email:
-            account_email = config.ENV_DATA["email"]
+            secret_key = generate_random_key(constants.EXPECTED_SECRET_KEY_LEN)
 
         hd = get_noobaa_sa_host_home_path()
         bucket_path = os.path.join(hd, f"fs_{account_name}")
