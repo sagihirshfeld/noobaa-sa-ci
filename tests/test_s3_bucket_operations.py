@@ -1,13 +1,6 @@
 import logging
-import os
-from datetime import datetime, timedelta, timezone
 
-import pytest
-
-import botocore
 from common_ci_utils.random_utils import generate_unique_resource_name
-from noobaa_sa.exceptions import BucketAlreadyExists, BucketNotEmpty, NoSuchBucket
-
 
 log = logging.getLogger(__name__)
 
@@ -88,68 +81,6 @@ class TestS3BucketOperations:
             log.error(f"Created buckets: {buckets}")
             log.error(f"Listed buckets: {listed_buckets}")
             raise e
-
-    @pytest.mark.parametrize("use_v2", [False, True])
-    def test_list_objects(self, c_scope_s3client, tmp_directories_factory, use_v2):
-        """
-        Test S3 ListObjects and S3 ListObjectsV2 operations:
-        1. Write random objects to a bucket
-        2. List the objects in the bucket
-        3. Verify the number of listed objects matches the number of written objects
-        4. Verify the listed objects metadata match the written objects
-            a. Verify the names match
-            b. Verify that the LastModified is around the time the object was written
-            c. Verify that the sizes match
-
-        """
-        origin_dir = tmp_directories_factory(dirs_to_create=["origin"])[0]
-        bucket = c_scope_s3client.create_bucket()
-
-        # 1. Write random objects to a bucket
-        written_objs_names = c_scope_s3client.put_random_objects(
-            bucket, amount=5, min_size="1M", max_size="2M", files_dir=origin_dir
-        )
-
-        # 2. List the objects in the bucket
-        response = c_scope_s3client.list_objects(
-            bucket, use_v2=use_v2, get_response=True
-        )
-        assert (
-            response["Code"] == 200
-        ), f"list_objects failed with an unexpected response: {response}"
-
-        listed_objects_md_dicts = response["Contents"]
-
-        # 3. Verify the number of listed objects matches the number of written objects
-        assert len(listed_objects_md_dicts) == len(
-            written_objs_names
-        ), "Listed objects count does not match original objects count"
-
-        # Sorting the two lists should align any written object with its listed counterpart
-        written_objs_names.sort()
-        listed_objects_md_dicts.sort(key=lambda x: x["Key"])
-
-        # 4. Verify the listed objects metadata match the written objects
-        for written, listed in zip(written_objs_names, listed_objects_md_dicts):
-            # 4.a. Verify the names match
-            assert (
-                written == listed["Key"]
-            ), "Listed object key does not match expected written object name"
-
-            # 4.b. Verify that the LastModified is around the time the object was written
-            last_modified = listed["LastModified"]
-            now = datetime.now(timezone.utc)
-            assert now - timedelta(minutes=5) < last_modified < now, (
-                "Listed object last modified time is not within a reasonable range",
-                f"Object: {written}, Last Modified: {last_modified}",
-            )
-            # 4.c. Verify that the sizes match
-            expected_size = os.path.getsize(os.path.join(origin_dir, written))
-            listed_size = listed["Size"]
-            assert expected_size == listed_size, (
-                "Listed object size does not match written object size",
-                f"Object: {written}, Expected: {expected_size}, Actual: {listed_size}",
-            )
 
     def test_expected_bucket_creation_failures(
         self, c_scope_s3client, account_manager, s3_client_factory

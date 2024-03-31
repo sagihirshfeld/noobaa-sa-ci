@@ -135,7 +135,7 @@ def generate_random_key(length=20):
     # Generate the rest of the key and make sure it doesn't contain any invalid characters
     invalid_chars = ["\\", "/", " ", '"', "'"]
     valid_special_characters = "".join(
-        char for char in string.punctuation if char not in invalid_chars
+        ch for ch in string.punctuation if ch not in invalid_chars
     )
     valid_characters = string.ascii_letters + string.digits + valid_special_characters
     key_chars = random.choices(valid_characters, k=length - len(mandatory_chars))
