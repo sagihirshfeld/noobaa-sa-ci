@@ -1,10 +1,12 @@
 import logging
 import os
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from common_ci_utils.file_system_utils import compare_md5sums
 from common_ci_utils.random_utils import (
+    generate_random_files,
     generate_random_hex,
     generate_unique_resource_name,
 )
@@ -79,7 +81,15 @@ class TestS3ObjectOperations:
                 f"Object: {written}, Expected: {expected_size}, Actual: {listed_size}",
             )
 
-    def test_put_and_get_obj(self, c_scope_s3client):
+    @pytest.mark.parametrize(
+        "put_method",
+        [
+            lambda file_path: open(file_path, "rb"),
+            lambda file_path: open(file_path, "rb").read(),
+        ],
+        ids=["file_object", "file_content"],
+    )
+    def test_put_and_get_obj(self, c_scope_s3client, put_method):
         """
         Test S3 PutObject and GetObject operations:
         1. Put an object to a bucket
@@ -89,24 +99,31 @@ class TestS3ObjectOperations:
         """
         bucket = c_scope_s3client.create_bucket()
 
-        # 1. Put an object to a bucket
-        put_obj_contents = generate_random_hex(500)
-        response = c_scope_s3client.put_object(
-            bucket, "random_str.txt", body=put_obj_contents
-        )
-        code = response["Code"]
-        assert code == 200, f"put_object failed with response code {code}"
+        obj_name = generate_unique_resource_name(prefix="obj-")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file = generate_random_files(
+                dir=tmp_dir, amount=1, min_size="1K", max_size="1K"
+            )[0]
+            file_path = os.path.join(tmp_dir, file)
 
-        # 2. Get the object from the bucket
-        response = c_scope_s3client.get_object(bucket, "random_str.txt")
-        code = response["Code"]
-        assert code == 200, f"get_object failed with response code {code}"
+            # 1. Put an object to a bucket
+            response = c_scope_s3client.put_object(
+                bucket, obj_name, body=put_method(file_path)
+            )
+            code = response["Code"]
+            assert code == 200, f"put_object failed with response code {code}"
 
-        # 3. Compare the retrieved object content to the original
-        get_obj_contents = response["Body"].read().decode("utf-8")
-        assert (
-            put_obj_contents == get_obj_contents
-        ), "Retrieved object content does not match"
+            # 2. Get the object from the bucket
+            response = c_scope_s3client.get_object(bucket, obj_name)
+            code = response["Code"]
+            assert code == 200, f"get_object failed with response code {code}"
+
+            # 3. Compare the retrieved object content to the original
+            original_file_content = open(file_path, "rb").read()
+            downloaded_obj_data = response["Body"].read()
+            assert (
+                original_file_content == downloaded_obj_data
+            ), "Retrieved object content does not match"
 
     def test_object_deletion(self, c_scope_s3client):
         """
