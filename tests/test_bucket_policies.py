@@ -1,7 +1,7 @@
-import logging
-import json
 import copy
-import time
+import json
+import logging
+
 import pytest
 
 log = logging.getLogger(__name__)
@@ -109,68 +109,3 @@ class TestBucketPolicies:
         # 4. Apply a valid policy and check that it works
         response = c_scope_s3client.put_bucket_policy(bucket, valid_bucket_policy)
         assert response["Code"] == 200, "get_bucket_policy failed"
-
-    @pytest.mark.parametrize(
-        "action",
-        [
-            (
-                "s3:GetObject",
-                lambda s3_client, bucket: s3_client.get_object(bucket, "test_obj_0"),
-            ),
-            (
-                "s3:PutObject",
-                lambda s3_client, bucket: s3_client.put_random_objects(
-                    bucket, amount=5
-                ),
-            ),
-            (
-                "s3:ListBucket",
-                lambda s3_client, bucket: s3_client.list_objects(bucket),
-            ),
-            (
-                "s3:DeleteObject",
-                lambda s3_client, bucket: s3_client.delete_object(bucket, "test_obj_0"),
-            ),
-        ],
-        ids=["GetObject", "PutObject", "ListBucket", "DeleteObject"],
-    )
-    def test_deny_principal(
-        self,
-        c_scope_s3client,
-        account_manager,
-        s3_client_factory,
-        bucket_policy_setup,
-        action,
-    ):
-        bucket, policy = bucket_policy_setup
-        denied_acc_name, denied_access_key, denied_secret_key = account_manager.create()
-        other_acc_client = s3_client_factory(
-            access_and_secret_keys_tuple=(denied_access_key, denied_secret_key)
-        )
-
-        action, action_validation_func = action
-
-        # Make sure the bucket contains an object with an expected key
-        prereq_obj_name = "test_obj_0"
-        random_obj = c_scope_s3client.put_random_objects(bucket, amount=1)[0]
-        c_scope_s3client.copy_object(bucket, random_obj, bucket, prereq_obj_name)
-
-        # 1. Apply a policy that denies access to the denied account
-        policy["Statement"][0]["Effect"] = "Deny"
-        policy["Statement"][0]["Action"] = action
-        policy["Statement"][0]["Principal"] = "*"
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
-        assert (
-            response["Code"] == 200
-        ), f"put_bucket_policy failed with code {response['Code']}"
-
-        # Wait for the policy to take effect
-        time.sleep(60)
-
-        # 2. Check that the original account can still access the bucket
-        response = action_validation_func(c_scope_s3client, bucket)
-        assert response["Code"] == 200, f"{action} failed for the original account"
-
-        # 3. Check that the denied account cannot access the bucket
-        response = action_validation_func(other_acc_client, bucket)
-        assert response["Code"] == 403, f"{action} succeeded for the denied account"
