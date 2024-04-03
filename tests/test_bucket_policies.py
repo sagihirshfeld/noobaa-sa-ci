@@ -50,6 +50,14 @@ class TestBucketPolicies:
             ),
             "success_code": 204,
         },
+        "DeleteBucket": {
+            "action": "s3:DeleteBucket",
+            "resource_template": "arn:aws:s3:::{bucket}",
+            "validation_func": lambda s3_client, bucket: s3_client.delete_bucket(
+                bucket
+            ),
+            "success_code": 204,
+        },
     }
 
     @pytest.fixture(scope="function")
@@ -149,6 +157,35 @@ class TestBucketPolicies:
         # 4. Apply a valid policy and check that it works
         response = c_scope_s3client.put_bucket_policy(bucket, valid_bucket_policy)
         assert response["Code"] == 200, "get_bucket_policy failed"
+
+    @pytest.mark.parametrize(
+        "subject_op",
+        [
+            "GetObject",
+            "PutObject",
+            "ListBucket",
+            "DeleteObject",
+            "DeleteBucket",
+        ],
+    )
+    def test_default_denial_of_other_accounts(
+        self, c_scope_s3client, s3_client_factory, subject_op
+    ):
+        """
+        Test that different accounts can't operate on each other's buckets by default
+
+        """
+        # Create a new S3Client of a new account
+        other_acc_s3_client = s3_client_factory()
+
+        # Create a new bucket using the client of one account
+        bucket = c_scope_s3client.create_bucket()
+
+        # Check that the new account can't operate on the bucket by default
+        response = self.op_dicts[subject_op]["validation_func"](
+            other_acc_s3_client, bucket
+        )
+        assert response["Code"] == "AccessDenied"
 
     @pytest.mark.parametrize(
         "subject_op",
