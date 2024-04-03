@@ -12,6 +12,46 @@ class TestBucketPolicies:
     Test S3 bucket policies
     """
 
+    default_test_obj_name = "test_obj_0"
+    default_content = "test_content"
+
+    op_dicts = {
+        "GetObject": {
+            "action": "s3:GetObject",
+            "resource_template": "arn:aws:s3:::{bucket}/*",
+            "validation_func": lambda s3_client, bucket: s3_client.get_object(
+                bucket, TestBucketPolicies.default_test_obj_name
+            ),
+            "success_code": 200,
+        },
+        "PutObject": {
+            "action": "s3:PutObject",
+            "resource_template": "arn:aws:s3:::{bucket}/*",
+            "validation_func": lambda s3_client, bucket: s3_client.put_object(
+                bucket,
+                TestBucketPolicies.default_test_obj_name,
+                TestBucketPolicies.default_content,
+            ),
+            "success_code": 200,
+        },
+        "ListBucket": {
+            "action": "s3:ListBucket",
+            "resource_template": "arn:aws:s3:::{bucket}",
+            "validation_func": lambda s3_client, bucket: s3_client.list_objects(
+                bucket, get_response=True
+            ),
+            "success_code": 200,
+        },
+        "DeleteObject": {
+            "action": "s3:DeleteObject",
+            "resource_template": "arn:aws:s3:::{bucket}/*",
+            "validation_func": lambda s3_client, bucket: s3_client.delete_object(
+                bucket, TestBucketPolicies.default_test_obj_name
+            ),
+            "success_code": 204,
+        },
+    }
+
     @pytest.fixture(scope="function")
     def bucket_policy_setup(self, c_scope_s3client):
         """
@@ -109,3 +149,74 @@ class TestBucketPolicies:
         # 4. Apply a valid policy and check that it works
         response = c_scope_s3client.put_bucket_policy(bucket, valid_bucket_policy)
         assert response["Code"] == 200, "get_bucket_policy failed"
+
+    @pytest.mark.parametrize(
+        "subject_op",
+        [
+            "GetObject",
+            "PutObject",
+            "ListBucket",
+            "DeleteObject",
+        ],
+    )
+    def test_allow_principal(
+        self,
+        c_scope_s3client,
+        account_manager,
+        s3_client_factory,
+        bucket_policy_setup,
+        subject_op,
+    ):
+        # Unpack fixture data
+        bucket, policy = bucket_policy_setup
+        subject_op_dict = self.op_dicts[subject_op]
+        action = subject_op_dict["action"]
+        resource_template = subject_op_dict["resource_template"]
+        validation_func = subject_op_dict["validation_func"]
+        expected_code = subject_op_dict["success_code"]
+
+        # Create a new S3Client instance a new account's credentials
+        new_account, new_acc_access_key, new_acc_secret_key = account_manager.create()
+        other_acc_client = s3_client_factory(
+            access_and_secret_keys_tuple=(new_acc_access_key, new_acc_secret_key)
+        )
+
+        # Make sure the bucket contains an object with an expected key
+        random_obj = c_scope_s3client.put_random_objects(bucket, amount=1)[0]
+        c_scope_s3client.copy_object(
+            bucket, random_obj, bucket, self.default_test_obj_name
+        )
+
+        # 1. Apply a policy that allows the operation for the new account
+        policy["Statement"][0].update(
+            {
+                "Effect": "Allow",
+                "Action": action,
+                "Principal": {"AWS": new_account},
+                "Resource": resource_template.format(bucket=bucket),
+            }
+        )
+        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        assert (
+            response["Code"] == 200
+        ), f"put_bucket_policy failed with code {response['Code']}"
+
+        # 2. Check that the original account can still perform the operation
+        response = validation_func(c_scope_s3client, bucket)
+        assert (
+            response["Code"] == expected_code
+        ), f"{action} failed for the original account"
+
+        # 3. Check that the new account can perform the operation
+        response = validation_func(other_acc_client, bucket)
+        assert response["Code"] == expected_code, f"{action} failed for the new account"
+
+        # 4. Check that the new account still can't perform the other operations
+        other_ops = [op for op in self.op_dicts.keys() if op != op]
+        for other_op in other_ops:
+            other_op_dict = self.op_dicts[other_op]
+            other_op_validation_func = other_op_dict["validation_func"]
+            assert (
+                other_op_validation_func(other_acc_client, bucket)["Code"]
+                == "AccessDenied"
+            )
