@@ -200,3 +200,59 @@ class TestBucketPolicies:
             assert not access_tester.check_client_access_to_bucket_op(
                 tested_client, bucket, other_op
             ), f"{other_op} was allowed for the new account after only allowing {operation}"
+
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            "GetObject",
+            "PutObject",
+            "ListBucket",
+            "DeleteObject",
+        ],
+    )
+    def test_deny_principal(
+        self,
+        account_manager,
+        s3_client_factory,
+        operation,
+    ):
+        # Create a new S3Client instance using a new account's credentials
+        acc_name, access_key, secret_key = account_manager.create()
+        s3_client = s3_client_factory(
+            access_and_secret_keys_tuple=(access_key, secret_key)
+        )
+        acc_name = s3_client_factory()
+
+        bucket = s3_client.create_bucket()
+        access_tester = S3OperationAccessTester(
+            admin_client=s3_client,
+        )
+
+        # 1. Apply a policy that denies an account from performing the operation
+        # on a bucket it owns
+        policy = (
+            BucketPolicyBuilder()
+            .add_deny_statement()
+            .on_action(operation)
+            .for_principal(acc_name)
+            .with_resource(
+                bucket if operation in constants.BUCKET_OPERATIONS else f"{bucket}/*"
+            )
+            .build()
+        )
+        response = s3_client.put_bucket_policy(bucket, policy)
+        assert (
+            response["Code"] == 200
+        ), f"put_bucket_policy failed with code {response['Code']}"
+
+        # 2. Check that the account can't perform the operation
+        assert not access_tester.check_client_access_to_bucket_op(
+            s3_client, bucket, operation
+        ), f"{operation} was allowed for the account"
+
+        # 3. Check that the account can still perform the other operations
+        other_ops = [op for op in self.op_dicts.keys() if op != op]
+        for other_op in other_ops:
+            assert access_tester.check_client_access_to_bucket_op(
+                s3_client, bucket, other_op
+            ), f"{other_op} was not allowed for the owning account after only denying {operation}"
