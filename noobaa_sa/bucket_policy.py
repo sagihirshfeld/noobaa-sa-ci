@@ -47,7 +47,7 @@ class BucketPolicyBuilder:
         self._update_property_on_last_statement("Principal", principal)
         return self
 
-    def not_on_principal(self, not_principal):
+    def not_for_principal(self, not_principal):
         self._update_property_on_last_statement("NotPrincipal", not_principal)
         return self
 
