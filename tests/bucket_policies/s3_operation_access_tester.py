@@ -1,5 +1,7 @@
 from abc import ABC
 
+from access_validation_strategies import AccessValidationStrategyFactory
+
 
 class S3OperationAccessTester:
     """
@@ -18,29 +20,6 @@ class S3OperationAccessTester:
         """
         self.admin_client = admin_client
 
-    def _get_strategy_for_operation(self, operation):
-        """
-        Args:
-            operation (str): The operation to test
-
-        Returns:
-            OperationTestStrategy: A strategy for testing the operation
-
-        Raises:
-            NotImplementedError: If the operation is not supported
-
-        """
-        if operation == "GetObject":
-            return GetObjectValidationStrategy(self.admin_client)
-        elif operation == "PutObject":
-            return PutObjectValidationStrategy(self.admin_client)
-        elif operation == "ListBucket":
-            return ListBucketValidationStrategy(self.admin_client)
-        elif operation == "DeleteObject":
-            return DeleteObjectValidationStrategy(self.admin_client)
-        else:
-            raise NotImplementedError(f"Unsupported operation: {operation}")
-
     def check_client_access_to_bucket_op(self, s3_client, bucket, operation):
         """
         Args:
@@ -56,9 +35,9 @@ class S3OperationAccessTester:
             Exception: If the operation returned an unexpected response code
 
         """
-        test_strategy = self._get_strategy_for_operation(operation)
-        setup_data = test_strategy.setup()
-        response = test_strategy.do_operation(s3_client, bucket, setup_data)
+        test_strategy = AccessValidationStrategyFactory.create_strategy(operation)
+        test_strategy.setup()
+        response = test_strategy.do_operation(s3_client, bucket)
         if response["Code"] == test_strategy.expected_success_code:
             return True
         elif response["Code"] == "AccessDenied":
@@ -85,18 +64,16 @@ class AccessValidationStrategy(ABC):
 
     def setup(self):
         """
-        Returns:
-            Any: Data to be used in the operation
+        Perform any necessary setup before the operation
 
         """
-        raise NotImplementedError
+        pass
 
-    def do_operation(self, s3_client, bucket, setup_data):
+    def do_operation(self, s3_client, bucket):
         """
         Args:
             s3_client (S3Client): The client to test access for
             bucket (str): The bucket to test access for
-            setup_data (Any): Data returned from setup
 
         Returns:
             dict: Response from the operation
@@ -104,87 +81,9 @@ class AccessValidationStrategy(ABC):
         """
         raise NotImplementedError
 
+    def cleanup(self):
+        """
+        Perform any necessary cleanup after the operation
 
-class GetObjectValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the GetObject operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 200
-
-    def setup(self):
-        obj = self.admin_client.put_object(self.bucket, "test_obj", "test_data")
-        return obj
-
-    def do_operation(self, s3_client, bucket, setup_data):
-        obj = setup_data
-        return s3_client.get_object(bucket, obj)
-
-
-class PutObjectValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the PutObject operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 200
-
-    def setup(self):
-        return
-
-    def do_operation(self, s3_client, bucket, setup_data):
-        return s3_client.put_object(bucket, "test_obj", "test_data")
-
-
-class ListBucketValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the ListBucket operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 200
-
-    def setup(self):
-        obj = self.admin_client.put_object(self.bucket, "test_obj", "test_data")
-        return obj
-
-    def do_operation(self, s3_client, bucket, setup_data):
-        return s3_client.list_objects(bucket, get_response=True)
-
-
-class DeleteObjectValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the DeleteObject operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 204
-
-    def setup(self):
-        obj = self.admin_client.put_object(self.bucket, "test_obj", "test_data")
-        return obj
-
-    def do_operation(self, s3_client, bucket, setup_data):
-        obj = setup_data
-        return s3_client.delete_object(bucket, obj)
-
-
-class DeleteBucketValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the DeleteBucket operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 204
-
-    def setup(self):
-        return
-
-    def do_operation(self, s3_client, bucket, setup_data):
-        return s3_client.delete_bucket(bucket)
+        """
+        pass
