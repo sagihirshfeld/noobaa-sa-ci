@@ -87,9 +87,10 @@ class TestMultiBucketPolicies:
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
+        # 2. Check that access is denied to all objects
         for obj in tested_objs:
             assert not access_tester.check_client_access_to_bucket_op(
-                c_scope_s3client, bucket, obj
+                c_scope_s3client, bucket, "GetObject", obj_key=obj
             ), f"Access was allowed to {obj} when it shouldn't have been"
 
     def test_multi_principal_statement_policy(
@@ -120,9 +121,10 @@ class TestMultiBucketPolicies:
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
+        # 2. Check that the two principals are denied access
         acc_names = [acc_a_name, acc_b_name]
         acc_clients = [acc_a_client, acc_b_client]
         for acc, s3_client in zip(acc_names, acc_clients):
             assert not access_tester.check_client_access_to_bucket_op(
-                s3_client, bucket, acc
+                s3_client, bucket, acc, "GetObject"
             ), f"Access was allowed for account {acc} when it shouldn't have been"

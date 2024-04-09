@@ -20,7 +20,7 @@ class S3OperationAccessTester:
         """
         self.admin_client = admin_client
 
-    def check_client_access_to_bucket_op(self, s3_client, bucket, operation):
+    def check_client_access_to_bucket_op(self, s3_client, bucket, operation, **kwargs):
         """
         Args:
             s3_client (S3Client): The client to test access for
@@ -36,7 +36,7 @@ class S3OperationAccessTester:
 
         """
         test_strategy = AccessValidationStrategyFactory.create_strategy(operation)
-        test_strategy.setup()
+        test_strategy.setup(**kwargs)
         response = test_strategy.do_operation(s3_client, bucket)
         if response["Code"] == test_strategy.expected_success_code:
             return True
@@ -62,7 +62,7 @@ class AccessValidationStrategy(ABC):
         """
         raise NotImplementedError
 
-    def setup(self):
+    def setup(self, **kwargs):
         """
         Perform any necessary setup before the operation
 

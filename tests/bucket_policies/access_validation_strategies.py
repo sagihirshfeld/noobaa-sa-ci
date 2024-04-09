@@ -48,11 +48,14 @@ class GetObjectValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 200
 
-    def setup(self):
-        self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
-        self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
+    def setup(self, **kwargs):
+        if "obj_key" in kwargs:
+            self.test_obj_key = kwargs["obj_key"]
+        else:
+            self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
+            self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
-    def do_operation(self, s3_client, bucket):
+    def do_operation(self, s3_client, bucket, **kwargs):
         return s3_client.get_object(bucket, self.test_obj_key)
 
 
@@ -79,7 +82,7 @@ class ListBucketValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 200
 
-    def setup(self):
+    def setup(self, **kwargs):
         obj_key = generate_unique_resource_name(prefix="test-obj-")
         self.admin_client.put_object(self.bucket, obj_key, "test_data")
 
@@ -96,9 +99,12 @@ class DeleteObjectValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 204
 
-    def setup(self):
-        self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
-        self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
+    def setup(self, **kwargs):
+        if "obj_key" in kwargs:
+            self.test_obj_key = kwargs["obj_key"]
+        else:
+            self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
+            self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
     def do_operation(self, s3_client, bucket):
         return s3_client.delete_object(bucket, self.test_obj_key)
