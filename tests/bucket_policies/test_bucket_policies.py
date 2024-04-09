@@ -272,22 +272,22 @@ class TestBucketPolicies:
         bucket = c_scope_s3client.create_bucket()
         test_objs = c_scope_s3client.put_random_objects(bucket, 2)
 
-        pb = BucketPolicyBuilder()
+        bpb = BucketPolicyBuilder()
         if access_effect == "Allow":
             # Use a new account which is denied all access to the bucket by default
             tested_client = s3_client_factory()
             # Start buildng an allow policy
-            pb.add_allow_statement()
+            bpb.add_allow_statement()
         else:
             # Use the account that owns the bucket which is allowed all access by default
             tested_client = c_scope_s3client
             # Start building a deny policy
-            pb.add_deny_statement()
+            bpb.add_deny_statement()
 
         # 1. Modify access to the first object
         # Finish building the policy
         policy = (
-            pb.on_action("*").for_principal("*").with_resource(test_objs[0]).build()
+            bpb.on_action("*").for_principal("*").with_resource(test_objs[0]).build()
         )
 
         # Apply the policy

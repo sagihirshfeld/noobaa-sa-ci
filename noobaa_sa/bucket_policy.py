@@ -32,9 +32,8 @@ class BucketPolicy:
 
 
 class BucketPolicyBuilder:
-    def __init__(self, policy=None, autocorrect=True):
+    def __init__(self, policy=None):
         self.policy = policy or BucketPolicy()
-        self._autocorrect = autocorrect
 
     def add_allow_statement(self):
         self.policy.statements.append({"Effect": "Allow"})
@@ -45,41 +44,58 @@ class BucketPolicyBuilder:
         return self
 
     def for_principal(self, principal):
-        if self._autocorrect:
-            principal = {"AWS": principal}
-        self.policy.statements[-1]["Principal"] = principal
+        self._update_property_on_last_statement("Principal", principal)
         return self
 
     def not_on_principal(self, not_principal):
-        self.policy.statements[-1]["NotPrincipal"] = not_principal
+        self._update_property_on_last_statement("NotPrincipal", not_principal)
         return self
 
     def on_action(self, action):
-        if not action.startswith(self.ACTION_PREFIX):
-            action = self.ACTION_PREFIX + action
-        self.policy.statements[-1]["Action"] = action
+        self._update_property_on_last_statement("Action", action)
         return self
 
     def not_for_action(self, not_action):
-        if self._autocorrect:
-            not_action = self._assure_prefix(not_action, self.ACTION_PREFIX)
-        self.policy.statements[-1]["NotAction"] = not_action
+        self._update_property_on_last_statement("NotAction", not_action)
         return self
 
     def with_resource(self, resource):
-        if self._autocorrect:
-            resource = self._assure_prefix(resource, self.RESOURCE_PREFIX)
-        self.policy.statements[-1]["Resource"] = resource
+        self._update_property_on_last_statement("Resource", resource)
         return self
 
     def not_on_resource(self, not_resource):
-        if self._autocorrect:
-            not_resource = self._assure_prefix(not_resource, self.RESOURCE_PREFIX)
-        self.policy.statements[-1]["NotResource"] = not_resource
+        self._update_property_on_last_statement("NotResource", not_resource)
         return self
 
-    def _assure_prefix(self, str, prefix):
-        return str if str.startswith(prefix) else prefix + str
+    def _update_property_on_last_statement(self, property, value):
+        """
+        Update the given property on the last statement in the policy.
+
+        """
+        value = self._assure_prefix(property, value)
+
+        # Principal and NotPrincipal formats are different
+        if "principal" in property.lower():
+            d = self.policy.statements[-1].setdefault("Principal", {})
+            property = "AWS"
+        else:
+            d = self.policy.statements[-1]
+
+        if property not in d:
+            d[property] = value
+        elif isinstance(d[property], list):
+            d[property].append(value)
+        else:
+            d[property] = [d[property], value]
+
+    def _assure_prefix(self, property, value):
+        prefix = ""
+        if property == "Action":
+            prefix = BucketPolicy.ACTION_PREFIX
+        elif property == "Resource":
+            prefix = BucketPolicy.RESOURCE_PREFIX
+
+        return value if value.startswith(prefix) else prefix + value
 
     def build(self):
         return self.policy
