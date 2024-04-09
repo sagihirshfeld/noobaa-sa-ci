@@ -260,3 +260,61 @@ class TestBucketPolicies:
             assert access_tester.check_client_access_to_bucket_op(
                 s3_client, bucket, other_op
             ), f"{other_op} was not allowed for the owning account after only denying {operation}"
+
+    @pytest.mark.parametrize(
+        "access_effect",
+        [
+            "Allow",
+            "Deny",
+        ],
+    )
+    def test_resource_access(self, c_scope_s3client, s3_client_factory, access_effect):
+        bucket = c_scope_s3client.create_bucket()
+        test_objs = c_scope_s3client.put_random_objects(bucket, 2)
+
+        pb = BucketPolicyBuilder()
+        if access_effect == "Allow":
+            # Use a new account which is denied all access to the bucket by default
+            tested_client = s3_client_factory()
+            # Start buildng an allow policy
+            pb.add_allow_statement()
+        else:
+            # Use the account that owns the bucket which is allowed all access by default
+            tested_client = c_scope_s3client
+            # Start building a deny policy
+            pb.add_deny_statement()
+
+        # 1. Modify access to the first object
+        # Finish building the policy
+        policy = (
+            pb.on_action("*").for_principal("*").with_resource(test_objs[0]).build()
+        )
+
+        # Apply the policy
+        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        assert (
+            response["Code"] == 200
+        ), f"put_bucket_policy failed with code {response['Code']}"
+
+        # 2. Check that the account has the expected access for each object
+        # The first object should have the applied access, and the second should have the opposite
+        denial_expectations = {
+            test_objs[0]: False if access_effect == "Allow" else True,
+        }
+        denial_expectation[test_objs[1]] = not denial_expectations[0]
+
+        # Check the expected acces for each object per operation
+        for obj in test_objs:
+            denial_expectation = denial_expectations[obj]
+            err_message = (
+                f"Access was {'allowed' if denial_expectation else 'denied'} "
+                "to the object when it shouldn't have been"
+            )
+            for op in [
+                tested_client.get_object,
+                tested_client.copy_object,
+                tested_client.delete_object,
+            ]:
+                response = op(bucket, obj)
+                access_denied = response["Code"] == "AccessDenied"
+                assert access_denied == denial_expectation, err_message
