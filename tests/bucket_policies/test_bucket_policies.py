@@ -144,10 +144,12 @@ class TestBucketPolicies:
             "GetObject",
             "PutObject",
             "ListBucket",
-            "DeleteObject",
+            "PutBucketPolicy",
+            "GetBucketPolicy",
+            "DeleteBucketPolicy",
         ],
     )
-    def test_allow_principal(
+    def test_allow_action(
         self,
         c_scope_s3client,
         account_manager,
@@ -208,9 +210,12 @@ class TestBucketPolicies:
             "PutObject",
             "ListBucket",
             "DeleteObject",
+            "PutBucketPolicy",
+            "GetBucketPolicy",
+            "DeleteBucketPolicy",
         ],
     )
-    def test_deny_principal(
+    def test_deny_action(
         self,
         account_manager,
         s3_client_factory,
@@ -221,7 +226,6 @@ class TestBucketPolicies:
         s3_client = s3_client_factory(
             access_and_secret_keys_tuple=(access_key, secret_key)
         )
-        acc_name = s3_client_factory()
 
         bucket = s3_client.create_bucket()
         access_tester = S3OperationAccessTester(

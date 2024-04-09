@@ -103,3 +103,67 @@ class DeleteObjectValidationStrategy(AccessValidationStrategy):
     def do_operation(self, s3_client, bucket):
         return s3_client.delete_object(bucket, self.test_obj_key)
 
+
+class DeleteBucketValidationStrategy(AccessValidationStrategy):
+    """
+    A strategy for validating access to the DeleteBucket operation
+    """
+
+    @property
+    def expected_success_code(self):
+        return 204
+
+    def do_operation(self, s3_client, bucket):
+        return s3_client.delete_bucket(bucket)
+
+
+class PutBucketPolicyValidationStrategy(AccessValidationStrategy):
+    """
+    A strategy for validating access to the PutBucketPolicy operation
+    """
+
+    @property
+    def expected_success_code(self):
+        return 204
+
+    def setup(self):
+        self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
+        self.test_policy = BucketPolicy.default_template()
+
+    def do_operation(self, s3_client, bucket):
+        return s3_client.put_bucket_policy(bucket, self.test_policy)
+
+    def cleanup(self):
+        self.admin_client.put_bucket_policy(self.bucket, self.original_policy)
+
+
+class GetBucketPolicyValidationStrategy(AccessValidationStrategy):
+    """
+    A strategy for validating access to the GetBucketPolicy operation
+    """
+
+    @property
+    def expected_success_code(self):
+        return 200
+
+    def do_operation(self, s3_client, bucket):
+        return s3_client.get_bucket_policy(bucket)
+
+
+class DeleteBucketPolicyValidationStrategy(AccessValidationStrategy):
+    """
+    A strategy for validating access to the DeleteBucketPolicy operation
+    """
+
+    @property
+    def expected_success_code(self):
+        return 204
+
+    def setup(self):
+        self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
+
+    def do_operation(self, s3_client, bucket):
+        return s3_client.delete_bucket_policy(bucket)
+
+    def cleanup(self):
+        self.admin_client.put_bucket_policy(self.bucket, self.original_policy)
