@@ -1,3 +1,5 @@
+from abc import ABC
+from botocore.exceptions import ClientError
 from common_ci_utils.random_utils import generate_unique_resource_name
 from s3_operation_access_tester import AccessValidationStrategy
 from noobaa_sa.bucket_policy import BucketPolicy
@@ -48,14 +50,14 @@ class GetObjectValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 200
 
-    def setup(self, **kwargs):
-        if "obj_key" in kwargs:
-            self.test_obj_key = kwargs["obj_key"]
+    def setup(self, **setup_kwargs):
+        if "obj_key" in setup_kwargs:
+            self.test_obj_key = setup_kwargs["obj_key"]
         else:
             self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
             self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
-    def do_operation(self, s3_client, bucket, **kwargs):
+    def do_operation(self, s3_client, bucket, **setup_kwargs):
         return s3_client.get_object(bucket, self.test_obj_key)
 
 
@@ -73,23 +75,6 @@ class PutObjectValidationStrategy(AccessValidationStrategy):
         return s3_client.put_object(bucket, obj_key, "test_data")
 
 
-class ListBucketValidationStrategy(AccessValidationStrategy):
-    """
-    A strategy for validating access to the ListBucket operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 200
-
-    def setup(self, **kwargs):
-        obj_key = generate_unique_resource_name(prefix="test-obj-")
-        self.admin_client.put_object(self.bucket, obj_key, "test_data")
-
-    def do_operation(self, s3_client, bucket):
-        return s3_client.list_objects(bucket, get_response=True)
-
-
 class DeleteObjectValidationStrategy(AccessValidationStrategy):
     """
     A strategy for validating access to the DeleteObject operation
@@ -99,15 +84,32 @@ class DeleteObjectValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 204
 
-    def setup(self, **kwargs):
-        if "obj_key" in kwargs:
-            self.test_obj_key = kwargs["obj_key"]
+    def setup(self, **setup_kwargs):
+        if "obj_key" in setup_kwargs:
+            self.test_obj_key = setup_kwargs["obj_key"]
         else:
             self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
             self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
     def do_operation(self, s3_client, bucket):
         return s3_client.delete_object(bucket, self.test_obj_key)
+
+
+class ListBucketValidationStrategy(AccessValidationStrategy):
+    """
+    A strategy for validating access to the ListBucket operation
+    """
+
+    @property
+    def expected_success_code(self):
+        return 200
+
+    def setup(self, **setup_kwargs):
+        obj_key = generate_unique_resource_name(prefix="test-obj-")
+        self.admin_client.put_object(self.bucket, obj_key, "test_data")
+
+    def do_operation(self, s3_client, bucket):
+        return s3_client.list_objects(bucket, get_response=True)
 
 
 class DeleteBucketValidationStrategy(AccessValidationStrategy):
@@ -123,7 +125,28 @@ class DeleteBucketValidationStrategy(AccessValidationStrategy):
         return s3_client.delete_bucket(bucket)
 
 
-class PutBucketPolicyValidationStrategy(AccessValidationStrategy):
+class PolicyOperationValidationStrategy(AccessValidationStrategy, ABC):
+    """
+    An abstract subclass for strategies used in validating access to bucket policy operations
+    """
+
+    def setup(self, **setup_kwargs):
+        if "policy" in setup_kwargs:
+            self.test_policy = setup_kwargs["policy"]
+        else:
+            self.test_policy = BucketPolicy.default_template()
+
+        try:
+            self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
+        except ClientError as e:
+            self.original_policy = None
+
+    def cleanup(self):
+        if self.original_policy:
+            self.admin_client.put_bucket_policy(self.bucket, self.original_policy)
+
+
+class PutBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
     """
     A strategy for validating access to the PutBucketPolicy operation
     """
@@ -132,18 +155,11 @@ class PutBucketPolicyValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 204
 
-    def setup(self):
-        self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
-        self.test_policy = BucketPolicy.default_template()
-
     def do_operation(self, s3_client, bucket):
         return s3_client.put_bucket_policy(bucket, self.test_policy)
 
-    def cleanup(self):
-        self.admin_client.put_bucket_policy(self.bucket, self.original_policy)
 
-
-class GetBucketPolicyValidationStrategy(AccessValidationStrategy):
+class GetBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
     """
     A strategy for validating access to the GetBucketPolicy operation
     """
@@ -156,7 +172,7 @@ class GetBucketPolicyValidationStrategy(AccessValidationStrategy):
         return s3_client.get_bucket_policy(bucket)
 
 
-class DeleteBucketPolicyValidationStrategy(AccessValidationStrategy):
+class DeleteBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
     """
     A strategy for validating access to the DeleteBucketPolicy operation
     """
@@ -165,11 +181,5 @@ class DeleteBucketPolicyValidationStrategy(AccessValidationStrategy):
     def expected_success_code(self):
         return 204
 
-    def setup(self):
-        self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
-
     def do_operation(self, s3_client, bucket):
         return s3_client.delete_bucket_policy(bucket)
-
-    def cleanup(self):
-        self.admin_client.put_bucket_policy(self.bucket, self.original_policy)

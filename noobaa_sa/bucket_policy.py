@@ -72,6 +72,9 @@ class BucketPolicyBuilder:
         Update the given property on the last statement in the policy.
 
         """
+        if not self.policy.statements:
+            raise ValueError("No statement to update")
+
         value = self._assure_prefix(property, value)
 
         # Principal and NotPrincipal formats are different
