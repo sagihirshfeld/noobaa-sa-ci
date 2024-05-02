@@ -179,14 +179,21 @@ def setup_nsfs_tls_cert(config_root):
     set_nsfs_certs_dir(remote_credentials_dir, config_root)
     restart_nsfs_service()
 
+    # Copy the certificate to a temporary location where we can download it
+    tmp_remote_tls_crt_path = "/tmp/tls.crt"
+    conn.exec_cmd(f"sudo cp {remote_tls_crt_path} {tmp_remote_tls_crt_path}")
+
     # Download the certificate to a local file
     with tempfile.NamedTemporaryFile(
         prefix="tls_", suffix=".crt", delete=False
     ) as local_tls_crt_file:
         conn.download_file(
-            remotepath=remote_tls_crt_path,
+            remotepath=tmp_remote_tls_crt_path,
             localpath=local_tls_crt_file.name,
         )
+
+    # Cleanup the temporary certificate file from the remote machine
+    conn.exec_cmd(f"sudo rm {tmp_remote_tls_crt_path}")
 
     S3Client.static_tls_crt_path = local_tls_crt_file.name
 
@@ -224,10 +231,21 @@ def check_nsfs_tls_cert_setup(config_root):
         )
         return False
 
+    # Copy the remote TLS certificate to a temporary location where we can download it
+    tmp_tls_crt_file = "/tmp/tls.crt"
+    conn.exec_cmd(f"sudo cp {config_root}/certificates/tls.crt {tmp_tls_crt_file}")
+
+    # Check if the local and remote certificates match
+    comp_result = False
     with tempfile.TemporaryDirectory() as tmp_dir:
         local_tls_crt_file = f"{tmp_dir}/tls.crt"
         conn.download_file(
-            remotepath=f"{config_root}/certificates/tls.crt",
+            remotepath=tmp_tls_crt_file,
             localpath=f"{tmp_dir}/tls.crt",
         )
-        return compare_md5sums(local_tls_crt_file, S3Client.static_tls_crt_path)
+        comp_result = compare_md5sums(local_tls_crt_file, S3Client.static_tls_crt_path)
+
+    # Cleanup the temporary certificate file from the remote machine
+    conn.exec_cmd(f"sudo rm {tmp_tls_crt_file}")
+
+    return comp_result
