@@ -1,7 +1,7 @@
 from abc import ABC
 from botocore.exceptions import ClientError
 from common_ci_utils.random_utils import generate_unique_resource_name
-from s3_operation_access_tester import AccessValidationStrategy
+from access_validation_strategy_interface import AccessValidationStrategy
 from noobaa_sa.bucket_policy import BucketPolicy
 
 
