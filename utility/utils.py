@@ -117,7 +117,7 @@ def split_file_data_for_multipart_upload(file_name, part_size=None):
     return all_chunks
 
 
-def generate_random_key(length=20):
+def generate_random_key(length=20, alphanumeric=True):
     """
     Generates a random string with the given length
 
@@ -132,11 +132,14 @@ def generate_random_key(length=20):
     mandatory_chars.append(random.choice(string.ascii_uppercase))
     mandatory_chars.append(random.choice(string.digits))
 
-    # Generate the rest of the key and make sure it doesn't contain any invalid characters
-    invalid_chars = ["\\", "/", " ", '"', "'"]
-    valid_special_characters = "".join(
-        ch for ch in string.punctuation if ch not in invalid_chars
-    )
+    valid_special_characters = ""
+    if not alphanumeric:
+        # Generate the rest of the key and make sure it doesn't contain any invalid characters
+        invalid_chars = ["\\", "/", " ", '"', "'"]
+        valid_special_characters = "".join(
+            ch for ch in string.punctuation if ch not in invalid_chars
+        )
+
     valid_characters = string.ascii_letters + string.digits + valid_special_characters
     key_chars = random.choices(valid_characters, k=length - len(mandatory_chars))
 
