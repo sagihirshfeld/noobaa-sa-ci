@@ -29,7 +29,7 @@ class TestBucketPolicies:
         policy = BucketPolicy.default_template()
 
         # 1. Put a bucket policy and verify the response
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         log.info(f"Result of put_bucket_policy: {json.dumps(response, indent=4)}")
         assert (
             response["ResponseMetadata"]["HTTPStatusCode"] == 200
@@ -52,8 +52,8 @@ class TestBucketPolicies:
     @pytest.mark.parametrize(
         "invalidate",
         [
-            (lambda d, d_key: d.pop(d_key)),
-            (lambda d, d_key: d.update({d_key: "invalid_value"})),
+            (lambda p, d_key: p.statements[0].pop(d_key)),
+            (lambda p, d_key: p.statements[0].update({d_key: "invalid_value"})),
         ],
         ids=["remove_property", "invalid_value"],
     )
@@ -80,17 +80,17 @@ class TestBucketPolicies:
 
         """
         bucket = c_scope_s3client.create_bucket()
-        valid_bucket_policy = BucketPolicy.build_default_template()
+        valid_bucket_policy = BucketPolicy.default_template()
 
         # 1. Create an invalid policy
         invalid_policy = copy.deepcopy(valid_bucket_policy)
-        invalidate(invalid_policy["Statement"][0], property_to_invalidate)
+        invalidate(invalid_policy, property_to_invalidate)
 
         # 2. Apply the invalid policy and check that it fails
-        response = c_scope_s3client.put_bucket_policy(bucket, invalid_policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(invalid_policy))
         log.info(f"Result of put_bucket_policy: {json.dumps(response, indent=4)}")
         assert (
-            response["Code"] == 400 or response["Code"] == "MalformedPolicy"
+            response["Code"] == "MalformedPolicy"
         ), "put_bucket_policy with invalid policy did not fail"
 
         # 3. Check that the bucket is still usable
@@ -101,7 +101,7 @@ class TestBucketPolicies:
         assert response["Code"] == 200, "list_objects failed"
 
         # 4. Apply a valid policy and check that it works
-        response = c_scope_s3client.put_bucket_policy(bucket, valid_bucket_policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(valid_bucket_policy))
         assert response["Code"] == 200, "get_bucket_policy failed"
 
     @pytest.mark.parametrize(
