@@ -14,12 +14,14 @@ from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
 from framework import config
 from noobaa_sa.s3_client import S3Client
+from utility.retry import retry_until_timeout
 from utility.utils import (
     get_env_config_root_full_path,
     get_current_test_name,
     get_noobaa_sa_host_home_path,
 )
 from utility.nsfs_server_utils import (
+    get_system_json,
     restart_nsfs_service,
     check_nsfs_tls_cert_setup,
     setup_nsfs_tls_cert,
@@ -100,6 +102,9 @@ def set_nsfs_server_config_root(request):
             f"echo '{config_root}' | sudo tee /etc/noobaa.conf.d/config_dir_redirect"
         )
         restart_nsfs_service()
+
+        # Wait for the NSFS service to create the system.json under the new config root
+        retry_until_timeout(get_system_json, timeout=60, config_root=config_root)
 
     request.addfinalizer(_clear_config_dir_redirect)
     return _redirect_nsfs_service_to_use_custom_config_root

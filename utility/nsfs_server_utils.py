@@ -133,6 +133,25 @@ def create_tls_key_and_cert(credentials_dir):
     return f"{credentials_dir}/tls.crt"
 
 
+def get_system_json(config_root=config.ENV_DATA["config_root"]):
+    """
+    Get the content of the NSFS system.json file
+
+    Args:
+        config_root(str): The full path to the configuration root directory on the remote machine
+
+    Returns:
+        dict: The content of the system.json file
+    """
+    conn = SSHConnectionManager().connection
+    retcode, stdout, _ = conn.exec_cmd(f"sudo cat {config_root}/system.json")
+    if retcode != 0:
+        raise MissingFileOrDirectory(
+            f"system.json file not found in {config_root}: {stdout}"
+        )
+    return json.loads(stdout)
+
+
 def set_nsfs_certs_dir(creds_dir, config_root=config.ENV_DATA["config_root"]):
     """
     Edit the NSFS system.json file to specify the path to the TLS key and certificate
@@ -150,12 +169,7 @@ def set_nsfs_certs_dir(creds_dir, config_root=config.ENV_DATA["config_root"]):
     log.info(
         "Editing the NSFS system.json file to specify the path to the TLS key and certificate"
     )
-    retcode, stdout, _ = conn.exec_cmd(f"sudo cat {config_root}/system.json")
-    if retcode != 0:
-        raise MissingFileOrDirectory(
-            f"system.json file not found in {config_root}: {stdout}"
-        )
-    system_json = json.loads(stdout)
+    system_json = get_system_json(config_root)
     system_json["nsfs_ssl_key_dir"] = creds_dir
     conn.exec_cmd(f"echo '{json.dumps(system_json)}' > {config_root}/system.json")
 
