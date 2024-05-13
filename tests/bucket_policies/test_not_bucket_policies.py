@@ -24,8 +24,8 @@ class TestNotBucketPolicies:
 
         # 1. Deny all access to all principals except the account specified by NotPrincipal
         bpb = BucketPolicyBuilder()
-        bpb.add_deny_statement().with_resource(f"{bucket}/*").on_action("*")
-        bpb.not_for_principal(allowed_acc_name)
+        bpb.add_deny_statement().add_resource(f"{bucket}/*").add_action("*")
+        bpb.add_not_principal(allowed_acc_name)
         policy = bpb.build()
 
         response = c_scope_s3client.put_bucket_policy(bucket, policy)
@@ -52,8 +52,8 @@ class TestNotBucketPolicies:
         # 1. Deny all actions on the bucket's objects except for the
         # action specified by NotAction
         bpb = BucketPolicyBuilder()
-        bpb.add_allow_statement().with_resource(f"{bucket}/*").for_principal("*")
-        bpb.not_for_action("GetObject")
+        bpb.add_allow_statement().add_resource(f"{bucket}/*").add_principal("*")
+        bpb.add_not_action("GetObject")
         policy = bpb.build()
 
         response = c_scope_s3client.put_bucket_policy(bucket, policy)
@@ -83,8 +83,8 @@ class TestNotBucketPolicies:
         # 1. Deny access to all objects in the bucket except for the
         # object specified by NotResource
         bpb = BucketPolicyBuilder()
-        bpb.add_allow_statement().on_action("GetObject").for_principal("*")
-        bpb.not_on_resource(f"{bucket}/{allowed_obj}")
+        bpb.add_allow_statement().add_action("GetObject").add_principal("*")
+        bpb.add_not_resource(f"{bucket}/{allowed_obj}")
         policy = bpb.build()
 
         response = c_scope_s3client.put_bucket_policy(bucket, policy)

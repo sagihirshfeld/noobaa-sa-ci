@@ -191,9 +191,9 @@ class TestBucketPolicies:
         bpb = BucketPolicyBuilder()
         if access_effect == "Deny":
             # Allow all operations by default
-            bpb.add_allow_statement().for_principal("*").on_action("*").with_resource(
+            bpb.add_allow_statement().add_principal("*").add_action("*").add_resource(
                 "*"
-            ).with_resource(f"{bucket}/*")
+            ).add_resource(f"{bucket}/*")
 
             # Start building a deny policy
             bpb.add_deny_statement()
@@ -203,7 +203,7 @@ class TestBucketPolicies:
             bpb.add_allow_statement()
 
         # Finish building the policy for the tested operation
-        bpb.on_action(tested_op).for_principal(acc_name).with_resource(
+        bpb.add_action(tested_op).add_principal(acc_name).add_resource(
             bucket if tested_op in constants.BUCKET_OPERATIONS else f"{bucket}/*"
         )
         policy = bpb.build()
@@ -274,7 +274,7 @@ class TestBucketPolicies:
         # 1. Modify access to the first object
         # Finish building the policy
         policy = (
-            bpb.on_action("*").for_principal("*").with_resource(test_objs[0]).build()
+            bpb.add_action("*").add_principal("*").add_resource(test_objs[0]).build()
         )
 
         # Apply the policy

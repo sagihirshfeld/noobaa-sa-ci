@@ -32,9 +32,9 @@ class BucketPolicy:
         return (
             BucketPolicyBuilder()
             .add_deny_statement()
-            .for_principal("*")
-            .on_action("GetObject")
-            .with_resource("*")
+            .add_principal("*")
+            .add_action("GetObject")
+            .add_resource("*")
             .build()
         )
 
@@ -51,27 +51,27 @@ class BucketPolicyBuilder:
         self.policy.statements.append({"Effect": "Deny"})
         return self
 
-    def for_principal(self, principal):
+    def add_principal(self, principal):
         self._update_property_on_last_statement("Principal", principal)
         return self
 
-    def not_for_principal(self, not_principal):
+    def add_not_principal(self, not_principal):
         self._update_property_on_last_statement("NotPrincipal", not_principal)
         return self
 
-    def on_action(self, action):
+    def add_action(self, action):
         self._update_property_on_last_statement("Action", action)
         return self
 
-    def not_for_action(self, not_action):
+    def add_not_action(self, not_action):
         self._update_property_on_last_statement("NotAction", not_action)
         return self
 
-    def with_resource(self, resource):
+    def add_resource(self, resource):
         self._update_property_on_last_statement("Resource", resource)
         return self
 
-    def not_on_resource(self, not_resource):
+    def add_not_resource(self, not_resource):
         self._update_property_on_last_statement("NotResource", not_resource)
         return self
 

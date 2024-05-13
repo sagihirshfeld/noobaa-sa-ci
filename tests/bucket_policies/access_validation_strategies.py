@@ -200,9 +200,9 @@ class PutBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
         test_policy = (
             BucketPolicyBuilder()
             .add_allow_statement()
-            .for_principal("*")
-            .on_action("PutBucketPolicy")
-            .with_resource("*")
+            .add_principal("*")
+            .add_action("PutBucketPolicy")
+            .add_resource("*")
             .build()
         )
         return s3_client.put_bucket_policy(bucket, str(test_policy))

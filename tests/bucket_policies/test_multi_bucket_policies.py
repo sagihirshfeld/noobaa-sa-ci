@@ -11,11 +11,11 @@ class TestMultiBucketPolicies:
         bpb = BucketPolicyBuilder()
         # 1. Apply a multi-statement policy
         # Allow all accounts all access to bucket's objects
-        bpb.add_allow_statement().on_action("*").for_principal("*").with_resource(
+        bpb.add_allow_statement().add_action("*").add_principal("*").add_resource(
             f"{bucket}/*"
         )
         # Deny all access specifically to the test object
-        bpb.add_deny_statement().on_action("*").for_principal("*").with_resource(
+        bpb.add_deny_statement().add_action("*").add_principal("*").add_resource(
             denied_obj
         )
 
@@ -50,10 +50,10 @@ class TestMultiBucketPolicies:
 
         # 1. Apply a multi-action statement policy
         bpb = BucketPolicyBuilder()
-        bpb.add_deny_statement().for_principal("*").with_resource(f"{bucket}/*")
+        bpb.add_deny_statement().add_principal("*").add_resource(f"{bucket}/*")
 
         for op in tested_ops:
-            bpb.on_action(op)
+            bpb.add_action(op)
 
         policy = bpb.build()
         response = c_scope_s3client.put_bucket_policy(bucket, policy)
@@ -76,10 +76,10 @@ class TestMultiBucketPolicies:
 
         # 1. Apply a multi-resource statement policy
         bpb = BucketPolicyBuilder()
-        bpb.add_deny_statement().for_principal("*").on_action("*")
+        bpb.add_deny_statement().add_principal("*").add_action("*")
 
         for obj in tested_objs:
-            bpb.with_resource(obj)
+            bpb.add_resource(obj)
 
         policy = bpb.build()
         response = c_scope_s3client.put_bucket_policy(bucket, policy)
@@ -112,8 +112,8 @@ class TestMultiBucketPolicies:
 
         # 1. Apply a multi-principal statement policy
         bpb = BucketPolicyBuilder()
-        bpb.add_deny_statement().on_action("*").with_resource(f"{bucket}/*")
-        bpb.for_principal(acc_a_name).for_principal(acc_b_name)
+        bpb.add_deny_statement().add_action("*").add_resource(f"{bucket}/*")
+        bpb.add_principal(acc_a_name).add_principal(acc_b_name)
 
         policy = bpb.build()
         response = c_scope_s3client.put_bucket_policy(bucket, policy)
