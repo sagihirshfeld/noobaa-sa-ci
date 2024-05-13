@@ -191,9 +191,13 @@ class TestBucketPolicies:
         bpb = BucketPolicyBuilder()
         if access_effect == "Deny":
             # Allow all operations by default
-            bpb.add_allow_statement().add_principal("*").add_action("*").add_resource(
-                "*"
-            ).add_resource(f"{bucket}/*")
+            bpb = (
+                bpb.add_allow_statement()
+                .add_principal("*")
+                .add_action("*")
+                .add_resource("*")
+                .add_resource(f"{bucket}/*")
+            )
 
             # Start building a deny policy
             bpb.add_deny_statement()
@@ -242,9 +246,10 @@ class TestBucketPolicies:
             can_access = access_tester.check_client_access_to_bucket_op(
                 new_acc_client, bucket, other_op
             )
-            assert (
-                can_access == expected_access_to_op
-            ), f"{other_op} was {'denied' if not can_access else 'allowed'} for the new account after only allowing {tested_op}"
+            assert can_access == expected_access_to_op, (
+                f"{other_op} was {'denied' if not can_access else 'allowed'}"
+                f" for the new account after only allowing {tested_op}"
+            )
 
     @pytest.mark.parametrize(
         "access_effect",
@@ -274,7 +279,10 @@ class TestBucketPolicies:
         # 1. Modify access to the first object
         # Finish building the policy
         policy = (
-            bpb.add_action("*").add_principal("*").add_resource(test_objs[0]).build()
+            bpb.add_action("*")
+            .add_principal("*")
+            .add_resource(f"{bucket}/{test_objs[0]}")
+            .build()
         )
 
         # Apply the policy
