@@ -141,127 +141,110 @@ class TestBucketPolicies:
         ), f"{operation} was allowed for a different account by default"
 
     @pytest.mark.parametrize(
-        "operation",
+        "access_effect",
+        [
+            "Allow",
+            "Deny",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "tested_op",
         [
             "GetObject",
             "PutObject",
+            "DeleteObject",
             "ListBucket",
             "PutBucketPolicy",
             "GetBucketPolicy",
-            "DeleteBucketPolicy",
+            "AbortMultipartUpload",
         ],
     )
-    def test_allow_action(
+    def test_operation_access_policies(
         self,
         c_scope_s3client,
         account_manager,
         s3_client_factory,
-        operation,
+        tested_op,
+        access_effect,
     ):
+        """
+        Test the use of Allow or Deny statements in bucket policies on specific operations:
+
+        1. Create a bucket using the first account
+        2. Create a new account
+        3. Apply a policy that allows or denies only the tested operation to the new account
+        4. Check that the original account can still perform the operation
+        5. Check that the new account is allowed/denied the operation
+        6. Check that the new account has the original access for other operations
+
+        """
+        # 1. Create a bucket using the first account
         bucket = c_scope_s3client.create_bucket()
 
-        # Create a new S3Client instance using a new account's credentials
-        tested_acc_name, new_acc_access_key, new_acc_secret_key = (
-            account_manager.create()
-        )
-        tested_client = s3_client_factory(
-            access_and_secret_keys_tuple=(new_acc_access_key, new_acc_secret_key)
-        )
-
-        # 1. Apply a policy that allows the operation for the new account
-        policy = (
-            BucketPolicyBuilder()
-            .add_allow_statement()
-            .on_action(operation)
-            .for_principal(tested_acc_name)
-            .with_resource(
-                bucket if operation in constants.BUCKET_OPERATIONS else f"{bucket}/*"
-            )
-            .build()
-        )
-
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
-        assert (
-            response["Code"] == 200
-        ), f"put_bucket_policy failed with code {response['Code']}"
-
-        # 2. Check that the original account can still perform the operation
-        access_tester = S3OperationAccessTester(
-            admin_client=c_scope_s3client,
-        )
-        assert access_tester.check_client_access_to_bucket_op(
-            c_scope_s3client, bucket, operation
-        ), f"{operation} was denied for the original account"
-
-        # 3. Check that tested account can perform the operation
-        assert access_tester.check_client_access_to_bucket_op(
-            tested_client, bucket, operation
-        ), f"{operation} was denied for the new account"
-
-        # 4. Check that the tested account still can't perform the other operations
-        other_ops = [op for op in self.op_dicts.keys() if op != op]
-        for other_op in other_ops:
-            assert not access_tester.check_client_access_to_bucket_op(
-                tested_client, bucket, other_op
-            ), f"{other_op} was allowed for the new account after only allowing {operation}"
-
-    @pytest.mark.parametrize(
-        "operation",
-        [
-            "GetObject",
-            "PutObject",
-            "ListBucket",
-            "DeleteObject",
-            "PutBucketPolicy",
-            "GetBucketPolicy",
-            "DeleteBucketPolicy",
-        ],
-    )
-    def test_deny_action(
-        self,
-        account_manager,
-        s3_client_factory,
-        operation,
-    ):
-        # Create a new S3Client instance using a new account's credentials
+        # 2. Create a new account
         acc_name, access_key, secret_key = account_manager.create()
-        s3_client = s3_client_factory(
+        new_acc_client = s3_client_factory(
             access_and_secret_keys_tuple=(access_key, secret_key)
         )
 
-        bucket = s3_client.create_bucket()
-        access_tester = S3OperationAccessTester(
-            admin_client=s3_client,
-        )
+        # 2. Apply a policy that allows or denies only the tested operation to the new account
+        bpb = BucketPolicyBuilder()
+        if access_effect == "Deny":
+            # Allow all operations by default
+            bpb.add_allow_statement().for_principal("*").on_action("*").with_resource(
+                "*"
+            ).with_resource(f"{bucket}/*")
 
-        # 1. Apply a policy that denies an account from performing the operation
-        # on a bucket it owns
-        policy = (
-            BucketPolicyBuilder()
-            .add_deny_statement()
-            .on_action(operation)
-            .for_principal(acc_name)
-            .with_resource(
-                bucket if operation in constants.BUCKET_OPERATIONS else f"{bucket}/*"
-            )
-            .build()
+            # Start building a deny policy
+            bpb.add_deny_statement()
+
+        else:
+            # Start building an allow policy
+            bpb.add_allow_statement()
+
+        # Finish building the policy for the tested operation
+        bpb.on_action(tested_op).for_principal(acc_name).with_resource(
+            bucket if tested_op in constants.BUCKET_OPERATIONS else f"{bucket}/*"
         )
-        response = s3_client.put_bucket_policy(bucket, policy)
+        policy = bpb.build()
+
+        # Apply the policy
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         assert (
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
-        # 2. Check that the account can't perform the operation
-        assert not access_tester.check_client_access_to_bucket_op(
-            s3_client, bucket, operation
-        ), f"{operation} was allowed for the account"
+        access_tester = S3OperationAccessTester(
+            admin_client=c_scope_s3client,
+        )
 
-        # 3. Check that the account can still perform the other operations
-        other_ops = [op for op in self.op_dicts.keys() if op != op]
+        # 4. Check that the original account can still perform the operation
+        assert access_tester.check_client_access_to_bucket_op(
+            c_scope_s3client, bucket, tested_op
+        ), f"{tested_op} was denied for the original account"
+
+        # 5. Check that the new account is allowed/denied the operation
+        expected_access_to_op = access_effect == "Allow"
+        can_access = access_tester.check_client_access_to_bucket_op(
+            new_acc_client, bucket, tested_op
+        )
+        assert (
+            can_access == expected_access_to_op
+        ), f"{tested_op} was {'denied' if not can_access else 'allowed'} for the new account"
+
+        # 6. Check that the new account has the original access for other operations
+        expected_access_to_op = (
+            not expected_access_to_op
+        )  # The opposite of the tested operation
+
+        other_ops = get_other_ops_for_permission_testing(tested_op)
         for other_op in other_ops:
-            assert access_tester.check_client_access_to_bucket_op(
-                s3_client, bucket, other_op
-            ), f"{other_op} was not allowed for the owning account after only denying {operation}"
+            can_access = access_tester.check_client_access_to_bucket_op(
+                new_acc_client, bucket, other_op
+            )
+            assert (
+                can_access == expected_access_to_op
+            ), f"{other_op} was {'denied' if not can_access else 'allowed'} for the new account after only allowing {tested_op}"
 
     @pytest.mark.parametrize(
         "access_effect",
@@ -270,7 +253,9 @@ class TestBucketPolicies:
             "Deny",
         ],
     )
-    def test_resource_access(self, c_scope_s3client, s3_client_factory, access_effect):
+    def test_resource_access_policies(
+        self, c_scope_s3client, s3_client_factory, access_effect
+    ):
         bucket = c_scope_s3client.create_bucket()
         test_objs = c_scope_s3client.put_random_objects(bucket, 2)
 
@@ -293,7 +278,7 @@ class TestBucketPolicies:
         )
 
         # Apply the policy
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         assert (
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
@@ -320,3 +305,40 @@ class TestBucketPolicies:
                 response = op(bucket, obj)
                 access_denied = response["Code"] == "AccessDenied"
                 assert access_denied == denial_expectation, err_message
+
+
+def get_other_ops_for_permission_testing(operation):
+    """
+    Get operations that don't have overlapping permissions with the given operation
+
+    Args:
+        operation (str): A given s3 operation
+
+    Returns:
+        list: A list of operations that don't have overlapping permissions with the given operation
+
+    """
+    # Base set of operations to test
+    other_ops = [
+        "GetObject",
+        "PutObject",
+        "DeleteObject",
+        "CopyObject",
+        "PutBucketPolicy",
+        "ListBucket",
+    ]
+
+    # Map of operations that have overlapping permissions
+    overlap_map = {
+        "HeadObject": ["GetObject"],
+        "GetObject": ["HeadObject", "CopyObject"],
+        "CopyObject": ["GetObject", "PutObject"],
+        "PutObject": ["CopyObject"],
+    }
+
+    # Remove any operations that have overlapping permissions with the allowed operation
+    return [
+        op
+        for op in other_ops
+        if op != operation and op not in overlap_map.get(operation, [])
+    ]
