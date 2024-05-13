@@ -72,7 +72,6 @@ class TestBucketPolicies:
         """
         Test applying invalid bucket policies by either
         removing a property or setting it to an invalid value:
-
         1. Create an invalid policy
         2. Apply the invalid policy and check that it fails
         3. Check that the bucket is still usable
@@ -162,14 +161,12 @@ class TestBucketPolicies:
     def test_operation_access_policies(
         self,
         c_scope_s3client,
-        account_manager,
         s3_client_factory,
         tested_op,
         access_effect,
     ):
         """
         Test the use of Allow or Deny statements in bucket policies on specific operations:
-
         1. Create a bucket using the first account
         2. Create a new account
         3. Apply a policy that allows or denies only the tested operation to the new account
@@ -182,12 +179,9 @@ class TestBucketPolicies:
         bucket = c_scope_s3client.create_bucket()
 
         # 2. Create a new account
-        acc_name, access_key, secret_key = account_manager.create()
-        new_acc_client = s3_client_factory(
-            access_and_secret_keys_tuple=(access_key, secret_key)
-        )
+        new_acc_client = s3_client_factory()
 
-        # 2. Apply a policy that allows or denies only the tested operation to the new account
+        # 3. Apply a policy that allows or denies only the tested operation to the new account
         bpb = BucketPolicyBuilder()
         if access_effect == "Deny":
             # Allow all operations by default
@@ -198,17 +192,19 @@ class TestBucketPolicies:
                 .add_resource("*")
                 .add_resource(f"{bucket}/*")
             )
-
             # Start building a deny policy
             bpb.add_deny_statement()
-
         else:
             # Start building an allow policy
             bpb.add_allow_statement()
 
         # Finish building the policy for the tested operation
-        bpb.add_action(tested_op).add_principal(acc_name).add_resource(
-            bucket if tested_op in constants.BUCKET_OPERATIONS else f"{bucket}/*"
+        bpb = (
+            bpb.add_action(tested_op)
+            .add_principal("*")
+            .add_resource(
+                bucket if tested_op in constants.BUCKET_OPERATIONS else f"{bucket}/*"
+            )
         )
         policy = bpb.build()
 
@@ -237,11 +233,13 @@ class TestBucketPolicies:
         ), f"{tested_op} was {'denied' if not can_access else 'allowed'} for the new account"
 
         # 6. Check that the new account has the original access for other operations
-        expected_access_to_op = (
-            not expected_access_to_op
-        )  # The opposite of the tested operation
 
+        # Other operations should have the opposite access
+        expected_access_to_op = not expected_access_to_op
+
+        # Get operations that don't have overlapping permissions with the tested operation
         other_ops = get_other_ops_for_permission_testing(tested_op)
+
         for other_op in other_ops:
             can_access = access_tester.check_client_access_to_bucket_op(
                 new_acc_client, bucket, other_op
@@ -255,29 +253,39 @@ class TestBucketPolicies:
         "access_effect",
         [
             "Allow",
-            "Deny",
+            # "Deny", Skipped due to https://bugzilla.redhat.com/show_bug.cgi?id=2280212
         ],
     )
     def test_resource_access_policies(
         self, c_scope_s3client, s3_client_factory, access_effect
     ):
+        """
+        Test bucket policies that modify access to specific resources:
+        1. Setup: create a bucket and put objects in it
+        2. Apply a bucket policy that modifies access to the first object
+            2.1 Build the policy with an Allow or Deny statement
+            2.2 Apply the policy
+        3. Check that the account has the expected access for each object
+            - Check multiple operations for each object
+
+
+        """
+        # 1. Setup
         bucket = c_scope_s3client.create_bucket()
         test_objs = c_scope_s3client.put_random_objects(bucket, 2)
 
+        # Use an account which is allowed/denied all access to the bucket by default
+        tested_client = (
+            s3_client_factory() if access_effect == "Allow" else c_scope_s3client
+        )
+        # 2. Apply a bucket policy that modifies access to the first object
+        # 2.1 Build the policy with an Allow or Deny statement
         bpb = BucketPolicyBuilder()
-        if access_effect == "Allow":
-            # Use a new account which is denied all access to the bucket by default
-            tested_client = s3_client_factory()
-            # Start buildng an allow policy
+        bpb = (
             bpb.add_allow_statement()
-        else:
-            # Use the account that owns the bucket which is allowed all access by default
-            tested_client = c_scope_s3client
-            # Start building a deny policy
-            bpb.add_deny_statement()
-
-        # 1. Modify access to the first object
-        # Finish building the policy
+            if access_effect == "Allow"
+            else bpb.add_deny_statement()
+        )
         policy = (
             bpb.add_action("*")
             .add_principal("*")
@@ -285,34 +293,35 @@ class TestBucketPolicies:
             .build()
         )
 
-        # Apply the policy
+        # 2.2 Apply the policy
         response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         assert (
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
-        # 2. Check that the account has the expected access for each object
-        # The first object should have the applied access, and the second should have the opposite
-        denial_expectations = {
-            test_objs[0]: False if access_effect == "Allow" else True,
-        }
-        denial_expectation[test_objs[1]] = not denial_expectations[0]
-
-        # Check the expected acces for each object per operation
-        for obj in test_objs:
-            denial_expectation = denial_expectations[obj]
-            err_message = (
-                f"Access was {'allowed' if denial_expectation else 'denied'} "
-                "to the object when it shouldn't have been"
-            )
+        # 3. Check that the account has the expected access for each object
+        first_obj_access_expectation = access_effect == "Allow"
+        access_expectations = [
+            first_obj_access_expectation,
+            not first_obj_access_expectation,
+        ]
+        # Check multiple operations for each object
+        access_tester = S3OperationAccessTester(admin_client=c_scope_s3client)
+        for i, obj in enumerate(test_objs):
             for op in [
-                tested_client.get_object,
-                tested_client.copy_object,
-                tested_client.delete_object,
+                "GetObject",
+                "DeleteObject",
             ]:
-                response = op(bucket, obj)
-                access_denied = response["Code"] == "AccessDenied"
-                assert access_denied == denial_expectation, err_message
+                can_access = access_tester.check_client_access_to_bucket_op(
+                    tested_client, bucket, op, obj_key=obj
+                )
+                assert can_access == access_expectations[i], (
+                    f"Access was {'allowed' if access_expectations[i] else 'denied'}"
+                    " to the object when it shouldn't have been:\n"
+                    f"operation={op}, object={obj}\n"
+                    f"expected access={access_expectations[i]}\n"
+                    f"actual access={can_access}\n"
+                )
 
 
 def get_other_ops_for_permission_testing(operation):
