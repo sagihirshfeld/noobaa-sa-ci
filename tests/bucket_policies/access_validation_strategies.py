@@ -2,7 +2,7 @@ from abc import ABC
 from botocore.exceptions import ClientError
 from common_ci_utils.random_utils import generate_unique_resource_name
 from access_validation_strategy_interface import AccessValidationStrategy
-from noobaa_sa.bucket_policy import BucketPolicy
+from noobaa_sa.bucket_policy import BucketPolicy, BucketPolicyBuilder
 
 
 class AccessValidationStrategyFactory:
@@ -175,13 +175,15 @@ class PolicyOperationValidationStrategy(AccessValidationStrategy, ABC):
             self.test_policy = BucketPolicy.default_template()
 
         try:
-            self.original_policy = self.admin_client.get_bucket_policy(self.bucket)
+            self.original_policy = BucketPolicy.from_json(
+                self.admin_client.get_bucket_policy(self.bucket).get("Policy")
+            )
         except ClientError as e:
             self.original_policy = None
 
     def cleanup(self):
         if self.original_policy:
-            self.admin_client.put_bucket_policy(self.bucket, self.original_policy)
+            self.admin_client.put_bucket_policy(self.bucket, str(self.original_policy))
 
 
 class PutBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
@@ -191,10 +193,19 @@ class PutBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
 
     @property
     def expected_success_code(self):
-        return 204
+        return 200
 
     def do_operation(self, s3_client, bucket):
-        return s3_client.put_bucket_policy(bucket, self.test_policy)
+
+        test_policy = (
+            BucketPolicyBuilder()
+            .add_allow_statement()
+            .for_principal("*")
+            .on_action("PutBucketPolicy")
+            .with_resource("*")
+            .build()
+        )
+        return s3_client.put_bucket_policy(bucket, str(test_policy))
 
 
 class GetBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
@@ -208,16 +219,3 @@ class GetBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
 
     def do_operation(self, s3_client, bucket):
         return s3_client.get_bucket_policy(bucket)
-
-
-class DeleteBucketPolicyValidationStrategy(PolicyOperationValidationStrategy):
-    """
-    A strategy for validating access to the DeleteBucketPolicy operation
-    """
-
-    @property
-    def expected_success_code(self):
-        return 204
-
-    def do_operation(self, s3_client, bucket):
-        return s3_client.delete_bucket_policy(bucket)

@@ -9,6 +9,14 @@ class BucketPolicy:
     ACTION_PREFIX = "s3:"
     RESOURCE_PREFIX = "arn:aws:s3:::"
 
+    @staticmethod
+    def from_json(json_str):
+        data = json.loads(json_str)
+        policy = BucketPolicy()
+        policy.version = data.get("Version", policy.DEFAULT_VERSION)
+        policy.statements = data.get("Statement", [])
+        return policy
+
     def __init__(self):
         self.version = self.DEFAULT_VERSION
         self.statements = []
