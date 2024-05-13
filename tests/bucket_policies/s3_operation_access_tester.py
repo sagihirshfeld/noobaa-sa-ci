@@ -36,12 +36,15 @@ class S3OperationAccessTester:
             Exception: If the operation returned an unexpected response code
 
         """
-        test_strategy = AccessValidationStrategyFactory.create_strategy(operation)
-        test_strategy.setup(setup_kwargs)
+        test_strategy = AccessValidationStrategyFactory.create_strategy_for_operation(
+            self.admin_client, bucket, operation
+        )
+        test_strategy.setup(**setup_kwargs)
         response = test_strategy.do_operation(s3_client, bucket)
+        test_strategy.cleanup()
         if response["Code"] == test_strategy.expected_success_code:
             return True
-        elif response["Code"] == "AccessDenied":
+        elif response["Code"] == "AccessDenied" or response["Code"] == 403:
             return False
         else:
             raise Exception(f"Unexpected response code: {response['Code']}")

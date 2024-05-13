@@ -8,6 +8,11 @@ class AccessValidationStrategy(ABC):
 
     """
 
+    def __init__(self, admin_client, bucket):
+        super().__init__()
+        self.admin_client = admin_client
+        self.bucket = bucket
+
     @property
     def expected_success_code(self):
         """

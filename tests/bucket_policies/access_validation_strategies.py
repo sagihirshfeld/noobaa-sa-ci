@@ -11,7 +11,7 @@ class AccessValidationStrategyFactory:
     """
 
     @staticmethod
-    def create_strategy_for_operation(operation):
+    def create_strategy_for_operation(admin_client, bucket, operation):
         """
         Create an AccessValidationStrategy instance for the given operation.
         Dynamically imports the appropriate strategy class based on the operation,
@@ -37,7 +37,7 @@ class AccessValidationStrategyFactory:
         except NameError:
             raise NotImplementedError(f"Operation not supported: {operation}")
 
-        strategy_instance = concrete_strategy_subclass()
+        strategy_instance = concrete_strategy_subclass(admin_client, bucket)
         return strategy_instance
 
 
