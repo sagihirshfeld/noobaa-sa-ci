@@ -108,7 +108,9 @@ class TestBucketPolicies:
         "operation",
         [
             "GetObject",
+            "HeadObject",
             "PutObject",
+            "CopyObject",
             "ListBucket",
             "DeleteObject",
             "DeleteBucket",

@@ -180,6 +180,27 @@ class S3Client:
         log.info(f"Listed objects: {listed_obs}")
         return response_dict if get_response else listed_obs
 
+    def head_object(self, bucket_name, object_key):
+        """
+        Get the metadata of an object in an S3 bucket using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket
+            object_key (str): The key of the object
+
+        Returns:
+            dict: A dictionary containing the response from the head_object call.
+                  Also includes the added Code key at the root level.
+
+        """
+        log.info(
+            f"Getting metadata of object {object_key} from bucket {bucket_name} via boto3"
+        )
+        response_dict = self._exec_boto3_method(
+            "head_object", Bucket=bucket_name, Key=object_key
+        )
+        return response_dict
+
     def put_object(self, bucket_name, object_key, body):
         """
         Put an object to an S3 bucket using boto3
