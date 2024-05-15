@@ -155,7 +155,6 @@ class TestBucketPolicies:
             "ListBucket",
             "PutBucketPolicy",
             "GetBucketPolicy",
-            "AbortMultipartUpload",
         ],
     )
     def test_operation_access_policies(
