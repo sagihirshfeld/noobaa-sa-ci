@@ -4,9 +4,9 @@ import logging
 
 import pytest
 
+from framework.bucket_policies.bucket_policy import BucketPolicy, BucketPolicyBuilder
+from framework.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
 from noobaa_sa import constants
-from noobaa_sa.bucket_policy import BucketPolicy, BucketPolicyBuilder
-from tests.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
 
 log = logging.getLogger(__name__)
 
@@ -232,19 +232,27 @@ class TestBucketPolicies:
         ), f"{tested_op} was {'denied' if not can_access else 'allowed'} for the new account"
 
         # 6. Check that the new account has the original access for other operations
-
+        other_ops = {
+            "GetObject",
+            "PutObject",
+            "DeleteObject",
+            "CopyObject",
+            "PutBucketPolicy",
+            "ListBucket",
+        }
         # Other operations should have the opposite access
         expected_access_to_op = not expected_access_to_op
 
-        # Get operations that don't have overlapping permissions with the tested operation
-        other_ops = get_other_ops_for_permission_testing(tested_op)
+        # Omit operations that have overlapping permissions with the tested operation
+        other_ops -= {tested_op}
+        other_ops -= set(BucketPolicy.get_ops_with_perm_overlap(tested_op))
 
-        for other_op in other_ops:
+        for op in other_ops:
             can_access = access_tester.check_client_access_to_bucket_op(
-                new_acc_client, bucket, other_op
+                new_acc_client, bucket, op
             )
             assert can_access == expected_access_to_op, (
-                f"{other_op} was {'denied' if not can_access else 'allowed'}"
+                f"{op} was {'denied' if not can_access else 'allowed'}"
                 f" for the new account after only allowing {tested_op}"
             )
 
@@ -321,40 +329,3 @@ class TestBucketPolicies:
                     f"expected access={access_expectations[i]}\n"
                     f"actual access={can_access}\n"
                 )
-
-
-def get_other_ops_for_permission_testing(operation):
-    """
-    Get operations that don't have overlapping permissions with the given operation
-
-    Args:
-        operation (str): A given s3 operation
-
-    Returns:
-        list: A list of operations that don't have overlapping permissions with the given operation
-
-    """
-    # Base set of operations to test
-    other_ops = [
-        "GetObject",
-        "PutObject",
-        "DeleteObject",
-        "CopyObject",
-        "PutBucketPolicy",
-        "ListBucket",
-    ]
-
-    # Map of operations that have overlapping permissions
-    overlap_map = {
-        "HeadObject": ["GetObject"],
-        "GetObject": ["HeadObject", "CopyObject"],
-        "CopyObject": ["GetObject", "PutObject"],
-        "PutObject": ["CopyObject"],
-    }
-
-    # Remove any operations that have overlapping permissions with the allowed operation
-    return [
-        op
-        for op in other_ops
-        if op != operation and op not in overlap_map.get(operation, [])
-    ]

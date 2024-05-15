@@ -1,20 +1,21 @@
-from access_validation_strategies import AccessValidationStrategyFactory
+from framework.bucket_policies.access_validation_strategy_factory import (
+    AccessValidationStrategyFactory,
+)
+from noobaa_sa.exceptions import UnexpectedBehaviour
 
 
 class S3OperationAccessTester:
     """
-    This class assess whether a specified s3 client is allowed access
+    This class checks whether a specified s3 client is allowed access
     for performing various operations on an S3 bucket, utilizing the strategy pattern.
 
     A prvilieged S3 client (admin_client) is required for setting up preconditions.
-
     """
 
     def __init__(self, admin_client):
         """
         Args:
-            admin_client (S3Client): A privileged client to set up preconditions
-
+            admin_client (S3Client): A privileged client for setting up preconditions
         """
         self.admin_client = admin_client
 
@@ -24,7 +25,7 @@ class S3OperationAccessTester:
         """
         Args:
             s3_client (S3Client): The client to test access for
-            bucket (str): The bucket to test access for
+            bucket (str): The bucket to test access on
             operation (str): The operation to test
             setup_kwargs (dict): Additional optional arguments for setting up the operation
 
@@ -33,8 +34,7 @@ class S3OperationAccessTester:
 
         Raises:
             NotImplementedError: If the operation is not supported
-            Exception: If the operation returned an unexpected response code
-
+            UnexpectedBehaviour: If the operation returned an unexpected response code
         """
         test_strategy = AccessValidationStrategyFactory.create_strategy_for_operation(
             self.admin_client, bucket, operation
@@ -47,4 +47,4 @@ class S3OperationAccessTester:
         elif response["Code"] == "AccessDenied" or response["Code"] == 403:
             return False
         else:
-            raise Exception(f"Unexpected response code: {response['Code']}")
+            raise UnexpectedBehaviour(f"Unexpected response code: {response['Code']}")

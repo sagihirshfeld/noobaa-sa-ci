@@ -1,5 +1,5 @@
-from noobaa_sa.bucket_policy import BucketPolicyBuilder
-from tests.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
+from framework.bucket_policies.bucket_policy import BucketPolicyBuilder
+from framework.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
 
 
 class TestNotBucketPolicies:

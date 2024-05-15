@@ -148,3 +148,22 @@ def generate_random_key(length=20, alphanumeric=True):
         key_chars.insert(random.randint(0, len(key_chars)), ch)
 
     return "".join(key_chars)
+
+
+def camel_to_snake(s):
+    """
+    Convert a CamelCase string to a snake_case string.
+
+    Args:
+        s (str): The CamelCase string to convert
+
+    Returns:
+        str: The snake_case string
+    """
+    snake_case = []
+    for i, ch in enumerate(s):
+        # Add an underscore before an uppercase letter, except the first one
+        if ch.isupper() and i != 0:
+            snake_case.append("_")
+        snake_case.append(ch.lower())
+    return "".join(snake_case)
