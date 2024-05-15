@@ -87,7 +87,7 @@ class BucketPolicyBuilder:
 
         # Principal and NotPrincipal formats are different
         if "principal" in property.lower():
-            d = self.policy.statements[-1].setdefault("Principal", {})
+            d = self.policy.statements[-1].setdefault(property, {})
             property = "AWS"
         else:
             d = self.policy.statements[-1]
@@ -101,9 +101,9 @@ class BucketPolicyBuilder:
 
     def _assure_prefix(self, property, value):
         prefix = ""
-        if property == "Action":
+        if "action" in property.lower():
             prefix = BucketPolicy.ACTION_PREFIX
-        elif property == "Resource":
+        elif "resource" in property.lower():
             prefix = BucketPolicy.RESOURCE_PREFIX
 
         return value if value.startswith(prefix) else prefix + value

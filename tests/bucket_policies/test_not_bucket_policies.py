@@ -11,93 +11,138 @@ class TestNotBucketPolicies:
     def test_not_principal_bucket_policy(
         self, c_scope_s3client, account_manager, s3_client_factory
     ):
-        bucket = c_scope_s3client.create_bucket()
-        access_tester = S3OperationAccessTester(
-            admin_client=c_scope_s3client,
-        )
+        """
+        Test the NotPrincipal field in a bucket policy:
+        1. Setup:
+            1.1 Create a bucket using the admin client
+            1.2 Create two accounts
+        2. Allow all access to all principals except for the account specified by NotPrincipal
+        3. Check that the allowed account can access the bucket
+        4. Check that the denied account cannot access the bucket
 
-        denied_client = s3_client_factory()
-        allowed_acc_name, access_key, secret_key = account_manager.create()
-        allowed_client = s3_client_factory(
+        """
+        # 1. Setup
+        bucket = c_scope_s3client.create_bucket()
+        allowed_client = s3_client_factory()
+        denied_acc_name, access_key, secret_key = account_manager.create()
+        denied_client = s3_client_factory(
             access_and_secret_keys_tuple=(access_key, secret_key)
         )
 
-        # 1. Deny all access to all principals except the account specified by NotPrincipal
-        bpb = BucketPolicyBuilder()
-        bpb.add_deny_statement().add_resource(f"{bucket}/*").add_action("*")
-        bpb.add_not_principal(allowed_acc_name)
-        policy = bpb.build()
+        # 2. Alllow all access to all principals except the account specified by NotPrincipal
+        policy = (
+            BucketPolicyBuilder()
+            .add_allow_statement()
+            .add_resource(f"{bucket}/*")
+            .add_action("*")
+            .add_not_principal(denied_acc_name)
+            .build()
+        )
 
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         assert (
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
-        # 2. Check that the allowed account can access the bucket
+        # 3. Check that the allowed account can access the bucket
+        access_tester = S3OperationAccessTester(
+            admin_client=c_scope_s3client,
+        )
         assert access_tester.check_client_access_to_bucket_op(
             allowed_client, bucket, "GetObject"
-        ), "GetObject was denied for the allowed account"
+        ), "Access was denied for the allowed account"
 
-        # 3. Check that the denied account cannot access the bucket
+        # 4. Check that the denied account cannot access the bucket
         assert not access_tester.check_client_access_to_bucket_op(
             denied_client, bucket, "GetObject"
-        ), "GetObject was allowed for the denied account when it shouldn't have been"
+        ), "The denied account was allowed acces when it shouldn't have been"
 
-    def test_not_action_bucket_policy(self, c_scope_s3client):
+    def test_not_action_bucket_policy(self, c_scope_s3client, s3_client_factory):
+        """
+        Test the NotAction field in a bucket policy:
+        1. Setup:
+            1.1 Create a bucket using the admin client
+            1.2 Create a new account
+        2. Allow all actions on the bucket's objects except for DeleteObject
+        3. Check that the DeleteObject action is denied
+        4. Check that other operations are allowed
+
+        """
+        # 1. Setup
         bucket = c_scope_s3client.create_bucket()
-        access_tester = S3OperationAccessTester(
-            admin_client=c_scope_s3client,
+        new_acc_client = s3_client_factory()
+
+        # 2. Allow all actions on the bucket's objects except for DeleteObject
+        policy = (
+            BucketPolicyBuilder()
+            .add_allow_statement()
+            .add_resource(f"{bucket}/*")
+            .add_principal("*")
+            .add_not_action("DeleteObject")
+            .build()
         )
 
-        # 1. Deny all actions on the bucket's objects except for the
-        # action specified by NotAction
-        bpb = BucketPolicyBuilder()
-        bpb.add_allow_statement().add_resource(f"{bucket}/*").add_principal("*")
-        bpb.add_not_action("GetObject")
-        policy = bpb.build()
-
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
         assert (
             response["Code"] == 200
         ), f"put_bucket_policy failed with code {response['Code']}"
 
-        # 2. Check that the GetObject action is still allowed
-        assert access_tester.check_client_access_to_bucket_op(
-            c_scope_s3client, bucket, "GetObject"
-        ), "GetObject was denied when it should have been allowed"
-
-        # 3. Check that other actions are denied
-        for op in ["PutObject", "DeleteObject"]:
-            assert not access_tester.check_client_access_to_bucket_op(
-                c_scope_s3client, bucket, op
-            ), f"{op} was allowed when it shouldn't have been"
-
-    def test_not_resource_bucket_policy(self, c_scope_s3client):
-        bucket = c_scope_s3client.create_bucket()
+        # 3. Check that the DeleteObject action is denied
         access_tester = S3OperationAccessTester(
             admin_client=c_scope_s3client,
         )
-
-        allowed_obj, denied_obj = c_scope_s3client.put_random_objects(bucket, 2)
-
-        # 1. Deny access to all objects in the bucket except for the
-        # object specified by NotResource
-        bpb = BucketPolicyBuilder()
-        bpb.add_allow_statement().add_action("GetObject").add_principal("*")
-        bpb.add_not_resource(f"{bucket}/{allowed_obj}")
-        policy = bpb.build()
-
-        response = c_scope_s3client.put_bucket_policy(bucket, policy)
-        assert (
-            response["Code"] == 200
-        ), f"put_bucket_policy failed with code {response['Code']}"
-
-        # 2. Check that the object specified by NotResource is still accessible
-        assert access_tester.check_client_access_to_bucket_op(
-            c_scope_s3client, bucket, "GetObject", obj_key=allowed_obj
-        ), f"Access to {allowed_obj} was denied when it should have been allowed"
-
-        # 3. Check that access to the other object is denied
         assert not access_tester.check_client_access_to_bucket_op(
-            c_scope_s3client, bucket, "GetObject", obj_key=denied_obj
-        ), f"Acess to {denied_obj} was allowed when it shouldn't have been"
+            new_acc_client, bucket, "DeleteObject"
+        ), "DeleteObject was allowed when it should have been denied"
+
+        # 4. Check that other actions are allowed
+        for op in ["GetObject", "PutObject"]:
+            assert access_tester.check_client_access_to_bucket_op(
+                new_acc_client, bucket, op
+            ), f"{op} was denied when it shouldn't have been"
+
+    def test_not_resource_bucket_policy(self, c_scope_s3client, s3_client_factory):
+        """
+        Test the NotResource field in a bucket policy:
+        1. Setup:
+            1.1 Create a bucket using the admin client
+            1.2 Create a new account
+        2. Allow access to all objects on the bucket except for the object specified by NotResource
+        3. Check that the object specified by NotResource is still inaccessible
+        4. Check that access to the other object is allowed
+
+        """
+        # 1. Setup
+        bucket = c_scope_s3client.create_bucket()
+        new_acc_client = s3_client_factory()
+        access_tester = S3OperationAccessTester(
+            admin_client=c_scope_s3client,
+        )
+
+        denied_obj, allowed_obj = c_scope_s3client.put_random_objects(bucket, 2)
+
+        # 2. Allow access to all objects on the bucket except for the
+        # object specified by NotResource
+        policy = (
+            BucketPolicyBuilder()
+            .add_allow_statement()
+            .add_action("*")
+            .add_principal("*")
+            .add_not_resource(f"{bucket}/{denied_obj}")
+            .build()
+        )
+
+        response = c_scope_s3client.put_bucket_policy(bucket, str(policy))
+        assert (
+            response["Code"] == 200
+        ), f"put_bucket_policy failed with code {response['Code']}"
+
+        # 3. Check that the object specified by NotResource is still inaccessible
+        assert not access_tester.check_client_access_to_bucket_op(
+            new_acc_client, bucket, "GetObject", obj_key=denied_obj
+        ), f"Access to {denied_obj} was allowed when it should have been denied"
+
+        # 4. Check that access to the other object is allowed
+        assert access_tester.check_client_access_to_bucket_op(
+            new_acc_client, bucket, "GetObject", obj_key=allowed_obj
+        ), f"Acess to {allowed_obj} was denied when it should have been allowed"
