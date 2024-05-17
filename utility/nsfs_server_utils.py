@@ -14,7 +14,7 @@ from common_ci_utils.templating import Templating
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from noobaa_sa.exceptions import MissingFileOrDirectory
+from noobaa_sa.exceptions import MissingFileOrDirectory, UnexpectedBehaviour
 from noobaa_sa.s3_client import S3Client
 
 log = logging.getLogger(__name__)
@@ -195,21 +195,11 @@ def setup_nsfs_tls_cert(config_root):
     set_nsfs_certs_dir(remote_credentials_dir, config_root)
     restart_nsfs_service()
 
-    # Copy the certificate to a temporary location where we can download it
-    tmp_remote_tls_crt_path = "/tmp/tls.crt"
-    conn.exec_cmd(f"sudo cp {remote_tls_crt_path} {tmp_remote_tls_crt_path}")
-
     # Download the certificate to a local file
     with tempfile.NamedTemporaryFile(
         prefix="tls_", suffix=".crt", delete=False
     ) as local_tls_crt_file:
-        conn.download_file(
-            remotepath=tmp_remote_tls_crt_path,
-            localpath=local_tls_crt_file.name,
-        )
-
-    # Cleanup the temporary certificate file from the remote machine
-    conn.exec_cmd(f"sudo rm {tmp_remote_tls_crt_path}")
+        download_file_via_ssh(remote_tls_crt_path, local_tls_crt_file.name)
 
     S3Client.static_tls_crt_path = local_tls_crt_file.name
 
@@ -240,28 +230,47 @@ def check_nsfs_tls_cert_setup(config_root):
         return False
 
     # Check if a TLS certificate file exists on the remote machine under the config root
-    retcode, _, _ = conn.exec_cmd(f"sudo [ -e '{config_root}/certificates/tls.crt' ]")
+    remote_crt_path = f"{config_root}/certificates/tls.crt"
+    retcode, _, _ = conn.exec_cmd(f"sudo [ -e '{remote_crt_path}' ]")
     if retcode != 0:
         log.info(
             f"NSFS server TLS certificate was not found under {config_root}/certificates"
         )
         return False
 
-    # Copy the remote TLS certificate to a temporary location where we can download it
-    tmp_tls_crt_file = "/tmp/tls.crt"
-    conn.exec_cmd(f"sudo cp {config_root}/certificates/tls.crt {tmp_tls_crt_file}")
-
     # Check if the local and remote certificates match
     comp_result = False
     with tempfile.TemporaryDirectory() as tmp_dir:
-        local_tls_crt_file = f"{tmp_dir}/tls.crt"
-        conn.download_file(
-            remotepath=tmp_tls_crt_file,
-            localpath=f"{tmp_dir}/tls.crt",
-        )
-        comp_result = compare_md5sums(local_tls_crt_file, S3Client.static_tls_crt_path)
-
-    # Cleanup the temporary certificate file from the remote machine
-    conn.exec_cmd(f"sudo rm {tmp_tls_crt_file}")
+        local_crt_file = f"{tmp_dir}/tls.crt"
+        download_file_via_ssh(remote_crt_path, local_crt_file.name)
+        comp_result = compare_md5sums(local_crt_file, S3Client.static_tls_crt_path)
 
     return comp_result
+
+
+def download_file_via_ssh(remotepath, localpath, use_sudo=True):
+    """
+    Download a file from a remote machine via SSH
+
+    Using this func with use_sudo enabled can be used as a workaround
+    couldn't be downloaded via SFTP due to permissions issues.
+
+    Args:
+        remotepath (str): The full path to the file on the remote machine
+        localpath (str): The full path to the file on the local machine
+        use_sudo (bool): Whether to use sudo to download the file
+
+    Raises:
+        UnexpectedBehaviour: In case the file couldn't be downloaded
+    """
+    conn = SSHConnectionManager().connection
+    sudo = "sudo" if use_sudo else ""
+    with open(localpath, "wb") as f:
+        retcode, stdout, stderr = conn.exec_cmd(f"{sudo} cat {remotepath} ")
+        if retcode != 0:
+            raise UnexpectedBehaviour(
+                f"Failed to download file {remotepath} to {localpath}\n"
+                f"stdout: {stdout}\n"
+                f"stderr: {stderr}\n"
+            )
+        f.write(stdout.encode("UTF-8"))
