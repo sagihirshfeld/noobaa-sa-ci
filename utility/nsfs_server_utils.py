@@ -144,10 +144,12 @@ def get_system_json(config_root=config.ENV_DATA["config_root"]):
         dict: The content of the system.json file
     """
     conn = SSHConnectionManager().connection
-    retcode, stdout, _ = conn.exec_cmd(f"sudo cat {config_root}/system.json")
+    retcode, stdout, stderr = conn.exec_cmd(f"sudo cat {config_root}/system.json")
     if retcode != 0:
         raise MissingFileOrDirectory(
-            f"system.json file not found in {config_root}: {stdout}"
+            f"system.json file not found in {config_root}\n:"
+            f"stdout: {stdout}\n"
+            f"stderr: {stderr}\n"
         )
     return json.loads(stdout)
 
