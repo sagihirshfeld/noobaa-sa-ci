@@ -241,9 +241,9 @@ def check_nsfs_tls_cert_setup(config_root):
     # Check if the local and remote certificates match
     comp_result = False
     with tempfile.TemporaryDirectory() as tmp_dir:
-        local_crt_file = f"{tmp_dir}/tls.crt"
-        download_file_via_ssh(remote_crt_path, local_crt_file.name)
-        comp_result = compare_md5sums(local_crt_file, S3Client.static_tls_crt_path)
+        local_crt_path = f"{tmp_dir}/tls.crt"
+        download_file_via_ssh(remote_crt_path, local_crt_path)
+        comp_result = compare_md5sums(local_crt_path, S3Client.static_tls_crt_path)
 
     return comp_result
 
