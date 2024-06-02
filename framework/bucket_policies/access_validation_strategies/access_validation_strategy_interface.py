@@ -8,6 +8,8 @@ class AccessValidationStrategy(ABC):
 
     """
 
+    TEST_OBJ_PREFIX = "test-obj-"
+
     def __init__(self, admin_client, bucket):
         super().__init__()
         self.admin_client = admin_client

@@ -14,7 +14,7 @@ class ListBucketValidationStrategy(AccessValidationStrategy):
         return 200
 
     def setup(self, **setup_kwargs):
-        obj_key = generate_unique_resource_name(prefix="test-obj-")
+        obj_key = generate_unique_resource_name(prefix=self.TEST_OBJ_PREFIX)
         self.admin_client.put_object(self.bucket, obj_key, "test_data")
 
     def do_operation(self, s3_client, bucket):

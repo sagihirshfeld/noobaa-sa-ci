@@ -17,7 +17,9 @@ class DeleteObjectValidationStrategy(AccessValidationStrategy):
         if "obj_key" in setup_kwargs:
             self.test_obj_key = setup_kwargs["obj_key"]
         else:
-            self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
+            self.test_obj_key = generate_unique_resource_name(
+                prefix=self.TEST_OBJ_PREFIX
+            )
             self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
     def do_operation(self, s3_client, bucket):

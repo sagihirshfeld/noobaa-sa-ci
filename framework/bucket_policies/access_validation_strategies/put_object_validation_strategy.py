@@ -14,5 +14,5 @@ class PutObjectValidationStrategy(AccessValidationStrategy):
         return 200
 
     def do_operation(self, s3_client, bucket):
-        obj_key = generate_unique_resource_name(prefix="test-obj-")
+        obj_key = generate_unique_resource_name(prefix=self.TEST_OBJ_PREFIX)
         return s3_client.put_object(bucket, obj_key, "test_data")

@@ -14,9 +14,9 @@ class CopyObjectValidationStrategy(AccessValidationStrategy):
         return 200
 
     def setup(self, **setup_kwargs):
-        self.test_obj_key = generate_unique_resource_name(prefix="test-obj-")
+        self.test_obj_key = generate_unique_resource_name(prefix=self.TEST_OBJ_PREFIX)
         self.admin_client.put_object(self.bucket, self.test_obj_key, "test_data")
 
     def do_operation(self, s3_client, bucket):
-        new_obj_key = generate_unique_resource_name(prefix="test-obj-")
+        new_obj_key = generate_unique_resource_name(prefix=self.TEST_OBJ_PREFIX)
         return s3_client.copy_object(bucket, self.test_obj_key, bucket, new_obj_key)
