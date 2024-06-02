@@ -37,9 +37,11 @@ class AccessValidationStrategyFactory:
 
         # Dynamically import the strategy module
         try:
-            prefix = "framework.bucket_policies.access_validation_strategies."
-            module = prefix + camel_to_snake(operation) + "_validation_strategy"
-            strategy_module = importlib.import_module(module)
+            # __package__ is the parent package of the current module
+            package = __package__ + ".access_validation_strategies"
+            module = camel_to_snake(operation) + "_validation_strategy"
+            full_module_path = package + "." + module
+            strategy_module = importlib.import_module(full_module_path)
         except ImportError:
             raise NotImplementedError(
                 f"No strategy module found for operation: {operation}"
@@ -51,7 +53,7 @@ class AccessValidationStrategyFactory:
             concrete_strategy_subclass = getattr(strategy_module, class_name)
         except AttributeError:
             raise NotImplementedError(
-                f"Strategy class {class_name} not found in module {module}"
+                f"Strategy class {class_name} not found in {full_module_path}"
             )
 
         # Create an instance of the strategy class
