@@ -153,6 +153,8 @@ class TestBucketPolicies:
             "PutObject",
             "DeleteObject",
             "ListBucket",
+            "PutBucketPolicy",
+            "GetBucketPolicy",
         ],
     )
     def test_operation_access_policies(
