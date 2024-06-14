@@ -1,5 +1,6 @@
 from framework.bucket_policies.bucket_policy import BucketPolicyBuilder
 from framework.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
+from framework.customizations.marks import tier1
 
 
 class TestMultiBucketPolicies:
@@ -8,6 +9,7 @@ class TestMultiBucketPolicies:
 
     """
 
+    @tier1
     def test_multi_statement_policy(self, c_scope_s3client, s3_client_factory):
         """
         Test multi-statement bucket policies:
@@ -67,6 +69,7 @@ class TestMultiBucketPolicies:
             new_acc_client, bucket, "GetObject", obj_key=denied_obj
         ), "Access was allowed to the denied object"
 
+    @tier1
     def test_multi_operation_statement_policy(
         self, c_scope_s3client, s3_client_factory
     ):
@@ -114,6 +117,7 @@ class TestMultiBucketPolicies:
                 new_acc_client, bucket, op
             ), f"{op} was denied for the account when it shouldn't have been"
 
+    @tier1
     def test_multi_resource_statement_policy(self, c_scope_s3client, s3_client_factory):
         """
         Test multi-resource statement policies:
@@ -161,6 +165,7 @@ class TestMultiBucketPolicies:
                 new_acc_client, bucket, "GetObject", obj_key=obj
             ), f"Access was denied to {obj} when it shouldn't have been"
 
+    @tier1
     def test_multi_principal_statement_policy(
         self, c_scope_s3client, account_manager, s3_client_factory
     ):

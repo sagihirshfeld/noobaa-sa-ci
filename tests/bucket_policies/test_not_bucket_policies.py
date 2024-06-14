@@ -1,5 +1,6 @@
 from framework.bucket_policies.bucket_policy import BucketPolicyBuilder
 from framework.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
+from framework.customizations.marks import tier1
 
 
 class TestNotBucketPolicies:
@@ -8,6 +9,7 @@ class TestNotBucketPolicies:
 
     """
 
+    @tier1
     def test_not_principal_bucket_policy(
         self, c_scope_s3client, account_manager, s3_client_factory
     ):
@@ -57,6 +59,7 @@ class TestNotBucketPolicies:
             denied_client, bucket, "GetObject"
         ), "The denied account was allowed acces when it shouldn't have been"
 
+    @tier1
     def test_not_action_bucket_policy(self, c_scope_s3client, s3_client_factory):
         """
         Test the NotAction field in a bucket policy:
@@ -101,6 +104,7 @@ class TestNotBucketPolicies:
                 new_acc_client, bucket, op
             ), f"{op} was denied when it shouldn't have been"
 
+    @tier1
     def test_not_resource_bucket_policy(self, c_scope_s3client, s3_client_factory):
         """
         Test the NotResource field in a bucket policy:

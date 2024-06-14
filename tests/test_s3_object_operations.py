@@ -4,6 +4,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from framework.customizations.marks import tier1, tier2, tier3
 from common_ci_utils.file_system_utils import compare_md5sums
 from common_ci_utils.random_utils import (
     generate_random_files,
@@ -19,6 +20,7 @@ class TestS3ObjectOperations:
     Test S3 object operations using NSFS
     """
 
+    @tier1
     @pytest.mark.parametrize("use_v2", [False, True])
     def test_list_objects(self, c_scope_s3client, tmp_directories_factory, use_v2):
         """
@@ -81,6 +83,7 @@ class TestS3ObjectOperations:
                 f"Object: {written}, Expected: {expected_size}, Actual: {listed_size}",
             )
 
+    @tier1
     @pytest.mark.parametrize(
         "put_method",
         [
@@ -125,6 +128,7 @@ class TestS3ObjectOperations:
                 original_file_content == downloaded_obj_data
             ), "Retrieved object content does not match"
 
+    @tier1
     def test_object_deletion(self, c_scope_s3client):
         """
         Test the S3 DeleteObject and DeleteObjects operations:
@@ -170,6 +174,7 @@ class TestS3ObjectOperations:
             written_objects[5:] == post_deletion_objects
         ), "Non deleted objects were not listed post deletion"
 
+    @tier1
     def test_copy_object(self, c_scope_s3client):
         """
         Test the S3 CopyObject operation:
@@ -220,6 +225,7 @@ class TestS3ObjectOperations:
         )
         assert obj_data_body == copied_obj_data, "Copied object content does not match"
 
+    @tier1
     def test_data_integrity(self, c_scope_s3client, tmp_directories_factory):
         """
         Test data integrity of objects written and read via S3:
@@ -259,6 +265,7 @@ class TestS3ObjectOperations:
             md5sums_match = compare_md5sums(original_full_path, downloaded_full_path)
             assert md5sums_match, f"MD5 sums do not match for {original}"
 
+    @tier3
     def test_expected_put_and_get_failures(self, c_scope_s3client):
         """
         Test S3 PutObject and GetObject operations that are expected to fail:
@@ -284,6 +291,7 @@ class TestS3ObjectOperations:
             response,
         )
 
+    @tier3
     def test_expected_copy_failures(self, c_scope_s3client):
         """
         Test S3 CopyObject operations that are expected to fail:

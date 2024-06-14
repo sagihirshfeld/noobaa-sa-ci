@@ -6,6 +6,7 @@ import pytest
 
 from framework.bucket_policies.bucket_policy import BucketPolicy, BucketPolicyBuilder
 from framework.bucket_policies.s3_operation_access_tester import S3OperationAccessTester
+from framework.customizations.marks import tier1, tier2, tier3
 from noobaa_sa import constants
 
 log = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class TestBucketPolicies:
 
     """
 
+    @tier1
     def test_bucket_policy_put_get_delete(self, c_scope_s3client):
         """
         Test the basic s3 bucket policy operations using a valid policy template:
@@ -49,6 +51,7 @@ class TestBucketPolicies:
             response["ResponseMetadata"]["HTTPStatusCode"] == 204
         ), "delete_bucket_policy failed"
 
+    @tier3
     @pytest.mark.parametrize(
         "invalidate",
         [
@@ -103,6 +106,7 @@ class TestBucketPolicies:
         response = c_scope_s3client.put_bucket_policy(bucket, str(valid_bucket_policy))
         assert response["Code"] == 200, "get_bucket_policy failed"
 
+    @tier3
     @pytest.mark.parametrize(
         "operation",
         [
@@ -139,6 +143,7 @@ class TestBucketPolicies:
             other_acc_s3_client, bucket, operation
         ), f"{operation} was allowed for a different account by default"
 
+    @tier2
     @pytest.mark.parametrize(
         "access_effect",
         [
@@ -255,6 +260,7 @@ class TestBucketPolicies:
                 f" for the new account after only allowing {tested_op}"
             )
 
+    @tier1
     @pytest.mark.parametrize(
         "access_effect",
         [

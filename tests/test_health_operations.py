@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from common_ci_utils.random_utils import generate_unique_resource_name
+from framework.customizations.marks import tier1
 from noobaa_sa import constants
 from utils.utils import get_noobaa_health_status
 from utility.utils import generate_random_key
@@ -26,6 +27,7 @@ class Test_health_operations:
         bucket_manager.create(account_name, bucket_name)
 
     # Noobaa port health operation
+    @tier1
     @pytest.mark.parametrize(
         argnames="flag",
         argvalues=[
@@ -60,6 +62,7 @@ class Test_health_operations:
         log.info(get_info)
 
     # Noobaa account health operation
+    @tier1
     @pytest.mark.parametrize(
         argnames="flag",
         argvalues=[
@@ -108,6 +111,7 @@ class Test_health_operations:
         log.info(get_info)
 
     # Noobaa bucket health operation
+    @tier1
     @pytest.mark.parametrize(
         argnames="flag",
         argvalues=[

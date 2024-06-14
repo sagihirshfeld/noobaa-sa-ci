@@ -1,6 +1,7 @@
 import logging
 
 from utility.bucket_utils import upload_incomplete_multipart_object
+from framework.customizations.marks import tier1
 from utility.utils import check_data_integrity
 
 log = logging.getLogger(__name__)
@@ -11,6 +12,7 @@ class TestMultipartOperations:
     Test S3 object multipart operations on NSFS
     """
 
+    @tier1
     def test_multipart_upload(
         self,
         c_scope_s3client,
@@ -39,6 +41,7 @@ class TestMultipartOperations:
         ), "Failed to upload multipart object"
         log.info(mp_response)
 
+    @tier1
     def test_multipart_download(self, c_scope_s3client, tmp_directories_factory):
         """
         Test basic s3 operations using a noobaa bucket:
@@ -64,6 +67,7 @@ class TestMultipartOperations:
         assert check_data_integrity(resp["origin_dir"], resp["results_dir"])
         log.info("Both uploaded and downloaded data are identical")
 
+    @tier1
     def test_list_multipart_objects(self, c_scope_s3client, tmp_directories_factory):
         """
         Test multipart object list operations using BOTO s3:
@@ -91,6 +95,7 @@ class TestMultipartOperations:
         ), "All uploaded objects are not present in bucket"
         log.info("Uploaded objects are present in bucket")
 
+    @tier1
     def test_multipart_list_parts(self, c_scope_s3client, tmp_directories_factory):
         """
         Test multipart object list operations using BOTO s3:
@@ -120,6 +125,7 @@ class TestMultipartOperations:
         log.info(mp_response)
         log.info("Multipart operation is completed")
 
+    @tier1
     def test_list_multipart_uploads(self, c_scope_s3client, tmp_directories_factory):
         """
         Test multipart object list operations using BOTO s3:
@@ -151,6 +157,7 @@ class TestMultipartOperations:
         log.info(mp_response)
         log.info("Multipart operation is completed")
 
+    @tier1
     def test_multipart_upload_part_copy(
         self, c_scope_s3client, tmp_directories_factory
     ):
@@ -200,6 +207,7 @@ class TestMultipartOperations:
         )
         log.info("Multipart operation is completed using upload_part_copy method")
 
+    @tier1
     def test_s3_multipart_abort_upload(self, c_scope_s3client, tmp_directories_factory):
         """
         Test multipart object list operations using BOTO s3:

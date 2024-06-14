@@ -3,12 +3,14 @@ import logging
 from common_ci_utils.random_utils import generate_unique_resource_name
 
 from framework import config
+from framework.customizations.marks import tier1
 from noobaa_sa import constants
 from utility.utils import generate_random_key
 
 log = logging.getLogger(__name__)
 
 
+@tier1
 def test_account_operations(account_manager):
     # account operations
     account_name = generate_unique_resource_name(prefix="account")

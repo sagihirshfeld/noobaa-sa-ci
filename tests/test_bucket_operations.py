@@ -4,12 +4,14 @@ import os
 from common_ci_utils.random_utils import generate_unique_resource_name
 
 from framework.ssh_connection_manager import SSHConnectionManager
+from framework.customizations.marks import tier1
 from noobaa_sa import constants
 from utility.utils import generate_random_key, get_noobaa_sa_host_home_path
 
 log = logging.getLogger(__name__)
 
 
+@tier1
 def test_bucket_operations(account_manager, bucket_manager):
     # Create SSH connection
     conn = SSHConnectionManager().connection

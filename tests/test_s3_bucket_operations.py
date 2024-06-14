@@ -1,5 +1,6 @@
 import logging
 
+from framework.customizations.marks import tier1, tier3
 from common_ci_utils.random_utils import generate_unique_resource_name
 
 log = logging.getLogger(__name__)
@@ -10,6 +11,7 @@ class TestS3BucketOperations:
     Test S3 bucket operations using NSFS
     """
 
+    @tier1
     def test_bucket_creation_deletion_and_head(self, c_scope_s3client):
         """
         Test bucket creation and deletion via S3:
@@ -40,6 +42,7 @@ class TestS3BucketOperations:
         response = c_scope_s3client.head_bucket(bucket_name)
         assert response["Code"] == 404, "Bucket was not deleted"
 
+    @tier1
     def test_list_buckets(self, c_scope_s3client):
         """
         Test listing buckets before creation and after deletion via S3
@@ -82,6 +85,7 @@ class TestS3BucketOperations:
             log.error(f"Listed buckets: {listed_buckets}")
             raise e
 
+    @tier3
     def test_expected_bucket_creation_failures(
         self, c_scope_s3client, account_manager, s3_client_factory
     ):
@@ -114,6 +118,7 @@ class TestS3BucketOperations:
         #     restricted_s3_client.create_bucket()
         #     log.error("Attempting to create a bucket with restricted credentials did not fail as expected")
 
+    @tier3
     def test_expected_bucket_deletion_failures(self, c_scope_s3client):
         """
         Test bucket deletion scenarios that are expected to fail:
