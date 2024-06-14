@@ -1,6 +1,6 @@
 {
     "name": "{{account_name}}",
-    "allow_bucket_creation": "true",
+    "allow_bucket_creation": "{{allow_bucket_creation}}",
     "access_key": "{{access_key}}",
     "secret_key": "{{secret_key}}",
     "uid": 0,

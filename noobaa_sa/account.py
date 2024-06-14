@@ -68,6 +68,7 @@ class NSFSAccount(Account):
         secret_key="",
         config_root=None,
         fs_backend=constants.DEFAULT_FS_BACKEND,
+        allow_bucket_creation=True,
     ):
         """
         Account creation using file
@@ -76,12 +77,9 @@ class NSFSAccount(Account):
             account_name (str): name of the account
             access_key (str): access key for the account
             secret_key (str): secret key for the account
-            email (str): email for the account
-            allow_bucket_creation (bool): allow bucket creation
-            uid (int): user ID
-            gid (int): group ID
             config_root (str): path to config root
             fs_backend (str): filesystem backend
+            allow_bucket_creation (bool): allow bucket creation
 
         Returns:
             tuple:
@@ -115,6 +113,7 @@ class NSFSAccount(Account):
             "secret_key": secret_key,
             "bucket_path": bucket_path,
             "fs_backend": fs_backend,
+            "allow_bucket_creation": allow_bucket_creation,
         }
         account_data_full = templating.render_template(account_template, account_data)
         log.info(f"account content: {account_data_full}")

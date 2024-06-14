@@ -99,20 +99,20 @@ class TestS3BucketOperations:
         ), "Bucket creation did not fail with the expected error"
 
         # 2. Test creating a bucket using the credentials of a user that's not allowed to create buckets
-
-        # TODO: Comment out once https://bugzilla.redhat.com/show_bug.cgi?id=2262992 is fixed
-        # _, restricted_acc_access_key, restricted_acc_secret_key = (
-        #     account_manager.create(allow_bucket_creation=False)
-        # )
-        # restricted_s3_client = s3_client_factory(
-        #     access_and_secret_keys_tuple=(
-        #         restricted_acc_access_key,
-        #         restricted_acc_secret_key,
-        #     )
-        # )
-        # with pytest.raises(AccessDeniedException):
-        #     restricted_s3_client.create_bucket()
-        #     log.error("Attempting to create a bucket with restricted credentials did not fail as expected")
+        _, restricted_acc_access_key, restricted_acc_secret_key = (
+            account_manager.create(allow_bucket_creation=False)
+        )
+        restricted_s3_client = s3_client_factory(
+            access_and_secret_keys_tuple=(
+                restricted_acc_access_key,
+                restricted_acc_secret_key,
+            )
+        )
+        response = restricted_s3_client.create_bucket(get_response=True)
+        assert (
+            response["Code"] == "AccessDenied",
+            "Bucket creatoin succeeded with a user that's not allowed to create buckets",
+        )
 
     def test_expected_bucket_deletion_failures(self, c_scope_s3client):
         """
