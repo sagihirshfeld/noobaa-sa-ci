@@ -10,6 +10,7 @@ from common_ci_utils.random_utils import (
 )
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
+from noobaa_sa.exceptions import AccountCreationFailed
 from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
 from framework import config
@@ -32,18 +33,30 @@ log = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="class")
-def account_manager_class(account_json=None):
-    return account_manager_implementation(account_json)
+def account_manager_class(request, account_json=None):
+    return account_manager_implementation(request, account_json)
 
 
 @pytest.fixture
-def account_manager(account_json=None):
-    return account_manager_implementation(account_json)
+def account_manager(request, account_json=None):
+    return account_manager_implementation(request, account_json)
 
 
-def account_manager_implementation(account_json=None):
+def account_manager_implementation(request, account_json=None):
     account_factory = AccountFactory()
-    return account_factory.get_account(account_json)
+    acc_manager_instance = account_factory.get_account(account_json)
+
+    def cleanup():
+        """
+        Make sure to delete the anonymous account
+        """
+        try:
+            acc_manager_instance.anonymous.delete()
+        except AccountCreationFailed as e:
+            log.warning(f"Failed to delete anonymous account: {e}")
+
+    request.addfinalizer(cleanup)
+    return acc_manager_instance
 
 
 @pytest.fixture
