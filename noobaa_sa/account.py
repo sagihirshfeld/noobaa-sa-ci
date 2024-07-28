@@ -14,6 +14,7 @@ from common_ci_utils.templating import Templating
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
+from noobaa_sa.anonymous_account_manager import AnonymousAccountManager
 from noobaa_sa.defaults import MANAGE_NSFS
 from noobaa_sa.exceptions import (
     AccountCreationFailed,
@@ -63,6 +64,9 @@ class NSFSAccount(Account):
     """
     Account operations for NSFS Deployment type
     """
+
+    # Expose a static interface for managing the anonymous account
+    anonymous = AnonymousAccountManager()
 
     def create(
         self,
