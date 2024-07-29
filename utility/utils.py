@@ -169,6 +169,43 @@ def camel_to_snake(s):
     return "".join(snake_case)
 
 
+def is_uid_gid_available(uid, gid):
+    """
+    Check if the UID and GID are available.
+
+    Args:
+        uid (int): The UID to check
+        gid (int): The GID to check
+
+    Returns:
+        bool: True if the UID and GID are available, False otherwise
+
+    """
+    conn = SSHConnectionManager().connection
+    check_uid_cmd = f"getent passwd {uid}"
+    check_gid_cmd = f"getent group {gid}"
+    uid_retcode, _, _ = conn.exec_cmd(check_uid_cmd)
+    gid_retcode, _, _ = conn.exec_cmd(check_gid_cmd)
+    return uid_retcode != 0 and gid_retcode != 0
+
+
+def is_linux_username_available(username):
+    """
+    Check if the username is available.
+
+    Args:
+        username (str): The username to check
+
+    Returns:
+        bool: True if the username is available, False otherwise
+
+    """
+    conn = SSHConnectionManager().connection
+    check_user_cmd = f"getent passwd {username}"
+    user_retcode, _, _ = conn.exec_cmd(check_user_cmd)
+    return user_retcode != 0
+
+
 def flatten_dict(d):
     """
     Flatten a nested dictionary into a single-level dictionary that contains
