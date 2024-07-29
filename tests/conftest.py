@@ -1,5 +1,7 @@
 import os
 import logging
+import random
+import string
 import tempfile
 import pytest
 
@@ -20,6 +22,8 @@ from utility.utils import (
     get_env_config_root_full_path,
     get_current_test_name,
     get_noobaa_sa_host_home_path,
+    is_linux_username_available,
+    is_uid_gid_available,
 )
 from utility.nsfs_server_utils import (
     get_system_json,
@@ -280,3 +284,79 @@ def tmp_directories_factory(request):
 
     request.addfinalizer(cleanup)
     return create_tmp_testing_dirs
+
+
+@pytest.fixture(scope="function")
+def linux_user_factory(request):
+    """
+    Factory for creating random Linux users on the remote machine, and cleanup after the test.
+
+    Returns:
+        func: A function that creates a random Linux user.
+
+    """
+    conn = SSHConnectionManager().connection
+    created_groups = []
+    created_users = []
+
+    def _create_user():
+        """
+        Create a random Linux user on the remote machine
+
+        Returns:
+            tuple: A tuple containing the UID, GID, and username of the created user.
+
+        """
+
+        def _random_username():
+            """Generate a random string of fixed length."""
+            letters = string.ascii_lowercase
+            return "".join(random.choice(letters) for i in range(8))
+
+        def _random_uid_gid():
+            """Generate a random UID and GID between 1000 and 9999."""
+            return random.randint(1000, 9999), random.randint(1000, 9999)
+
+        # Generate until available credentials are found
+        username = _random_username()
+        while not is_linux_username_available(username):
+            username = _random_username()
+
+        uid, gid = _random_uid_gid()
+        while not is_uid_gid_available(uid, gid):
+            uid, gid = _random_uid_gid()
+
+        # Create the group
+        group_name = f"group_{username}"
+        create_group_cmd = f"sudo groupadd -g {gid} {group_name}"
+        retcode, stdout, _ = conn.exec_cmd(create_group_cmd)
+        if retcode != 0:
+            raise ValueError(f"Failed to create group: {stdout}")
+        created_groups.append(group_name)
+
+        # Create the user
+        create_cmd = f"sudo useradd -u {uid} -g {gid} {username}"
+        retcode, stdout, _ = conn.exec_cmd(create_cmd)
+        if retcode != 0:
+            raise ValueError(f"Failed to create user: {stdout}")
+        created_users.append(username)
+
+        return uid, gid, username
+
+    def _cleanup():
+        # Delete the created users
+        for user_name in created_users:
+            delete_cmd = f"sudo userdel {user_name}"
+            retcode, stdout, _ = conn.exec_cmd(delete_cmd)
+            if retcode != 0:
+                raise ValueError(f"Failed to delete user: {stdout}")
+
+        # Delete the created groups
+        for group in created_groups:
+            delete_group_cmd = f"sudo groupdel {group}"
+            retcode, stdout, _ = conn.exec_cmd(delete_group_cmd)
+            if retcode != 0:
+                raise ValueError(f"Failed to delete group: {stdout}")
+
+    request.addfinalizer(_cleanup)
+    return _create_user
