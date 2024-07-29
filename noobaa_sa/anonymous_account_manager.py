@@ -37,7 +37,7 @@ class AnonymousAccountManager:
         log.info(f"Adding anonymous account: uid: {uid}, gid: {gid}, user: {user}")
 
         cmd = f"sudo {self.NB_CLI_PATH} account add --anonymous "
-        if uid and gid:
+        if uid is not None and gid is not None:
             cmd += f"--uid {uid} --gid {gid}"
         elif user:
             cmd += f"--user {user}"
