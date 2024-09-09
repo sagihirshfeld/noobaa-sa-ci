@@ -198,7 +198,7 @@ class NSFSAccount(Account):
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         log.info(stdout)
         if retcode != 0:
-            raise AccountListFailed(f"Listing of accounts failed with error {stderr}")
+            raise AccountListFailed(f"Listing of accounts failed with error {stdout}")
 
     def delete(self, account_name=None, config_root=None):
         """
@@ -222,7 +222,7 @@ class NSFSAccount(Account):
 
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
-            raise AccountDeletionFailed(f"Deleting account failed with error {stderr}")
+            raise AccountDeletionFailed(f"Deleting account failed with error {stdout}")
 
     def update(self, account_name, update_params, config_root=None):
         """
@@ -254,7 +254,7 @@ class NSFSAccount(Account):
 
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
-            raise AccountUpdateFailed(f"Updating account failed with error {stderr}")
+            raise AccountUpdateFailed(f"Updating account failed with error {stdout}")
 
     def status(self, account_name, config_root=None):
         """
@@ -281,7 +281,7 @@ class NSFSAccount(Account):
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountStatusQueryFailed(
-                f"Getting account status failed with error {stderr}"
+                f"Getting account status failed with error {stdout}"
             )
 
         response_dict = json.loads(stdout)
