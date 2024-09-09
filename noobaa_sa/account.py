@@ -14,7 +14,6 @@ from common_ci_utils.templating import Templating
 from framework import config
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from noobaa_sa.anonymous_account_manager import AnonymousAccountManager
 from noobaa_sa.defaults import MANAGE_NSFS
 from noobaa_sa.exceptions import (
     AccountCreationFailed,
@@ -64,9 +63,6 @@ class NSFSAccount(Account):
     """
     Account operations for NSFS Deployment type
     """
-
-    # Expose a static interface for managing the anonymous account
-    anonymous = AnonymousAccountManager()
 
     def create(
         self,
@@ -152,6 +148,41 @@ class NSFSAccount(Account):
         log.info("Account created successfully")
         return account_name, access_key, secret_key
 
+    def create_anonymous(self, uid=None, gid=None, user=None):
+        """
+        Create an anonymous account using the NooBaa CLI
+
+        Args:
+            uid (str|optional): uid of an account with access to the file system
+            gid (str|optional): gid of an account with access to the file system
+            user (str|optional): user name of an account with access to the file system
+
+            Note that either a valid uid and gid pair or a valid user name must be provided
+
+        Raises:
+            AccountCreationFailed: If the creation of the anonymous account fails
+
+        """
+
+        log.info(f"Adding anonymous account: uid: {uid}, gid: {gid}, user: {user}")
+
+        cmd = f"sudo {self.manage_nsfs} account add --anonymous"
+        if uid is not None and gid is not None:
+            cmd += f" --uid {uid} --gid {gid}"
+        elif user:
+            cmd += f" --user {user}"
+        else:
+            raise AccountCreationFailed(
+                "Please provide either a valid uid and gid pair, or a valid user name"
+            )
+
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
+        if retcode != 0:
+            raise AccountCreationFailed(
+                f"Creation of anonymous account failed with error {stdout}"
+            )
+        log.info("Anonymous account created successfully")
+
     def list(self, config_root=None):
         """
         Lists accounts
@@ -183,7 +214,12 @@ class NSFSAccount(Account):
         log.info("Deleting account for NSFS deployment")
         log.info(account_name)
         log.info(config_root)
-        cmd = f"sudo {self.manage_nsfs} account delete --name {account_name} --config_root {config_root}"
+        cmd = f"sudo {self.manage_nsfs} account delete "
+        if account_name != "anonymous":
+            cmd += f"--name {account_name} --config_root {config_root}"
+        else:
+            cmd += f"--anonymous"
+
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountDeletionFailed(f"Deleting account failed with error {stderr}")
@@ -202,13 +238,19 @@ class NSFSAccount(Account):
         if config_root is None:
             config_root = self.config_root
 
-        cmd = f"sudo {self.manage_nsfs} account update --name {account_name}"
+        cmd = f"sudo {self.manage_nsfs} account"
+        if account_name != "anonymous":
+            cmd += f" update --name {account_name}"
+        else:
+            cmd += " update --anonymous"
         for key, new_value in update_params.items():
             # Convert boolean values to the expected string format
             if isinstance(new_value, bool):
                 new_value = str(new_value).lower()
             cmd += f" --{key} {new_value}"
-        cmd += f" --config_root {config_root}"
+
+        if account_name != "anonymous":
+            cmd += f" --config_root {config_root}"
 
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
@@ -229,8 +271,12 @@ class NSFSAccount(Account):
         if config_root is None:
             config_root = self.config_root
 
-        cmd = f"sudo {self.manage_nsfs} account status --name {account_name} --show_secrets"
-        cmd += f" --config_root {config_root}"
+        cmd = f"sudo {self.manage_nsfs} account status"
+        if account_name != "anonymous":
+            cmd += f" --name {account_name} --show_secrets"
+            cmd += f" --config_root {config_root}"
+        else:
+            cmd += " --anonymous"
 
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:

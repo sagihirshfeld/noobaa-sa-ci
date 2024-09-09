@@ -6,11 +6,12 @@ import tempfile
 import boto3
 import botocore
 import botocore.handlers
+import pytest
 
 from framework.bucket_policies.bucket_policy import BucketPolicyBuilder
 from framework.customizations.marks import tier1
 from framework.ssh_connection_manager import SSHConnectionManager
-from noobaa_sa.exceptions import AccountCreationFailed
+from noobaa_sa.exceptions import AccountCreationFailed, AccountStatusQueryFailed
 from noobaa_sa.s3_client import S3Client
 
 log = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class TestAnonymousAccess:
             """
             Verify that the anonymous account has the expected uid, gid, or user name
             """
-            anon_acc_nsfs_config = account_manager.anonymous.status()[
+            anon_acc_nsfs_config = account_manager.status(account_name="anonymous")[
                 "nsfs_account_config"
             ]
             if username:
@@ -65,14 +66,14 @@ class TestAnonymousAccess:
         uid_b, gid_b, username_b = linux_user_factory()
 
         # 2. Create an anonymous account by providing a uid and gid
-        account_manager.anonymous.create(uid=uid_a, gid=gid_a)
+        account_manager.create_anonymous(uid=uid_a, gid=gid_a)
 
         # 3. Check that its uid and gid match the ones we provided
         _verify_anonymous_account(uid=uid_a, gid=gid_a)
 
         # 4. Try creating a second anonymous account and check that it fails
         try:
-            account_manager.anonymous.create(uid=uid_b, gid=gid_b)
+            account_manager.create_anonymous(uid=uid_b, gid=gid_b)
         except AccountCreationFailed as e:
             if "AccountNameAlreadyExists" in str(e):
                 log.info("Creating a second anonymous account failed as expected")
@@ -83,27 +84,38 @@ class TestAnonymousAccess:
                 raise e
 
         # 5. Update the anonymous account with new uid and gid
-        log.info(account_manager.anonymous.update(uid=uid_b, gid=gid_b))
+        log.info(
+            account_manager.update(
+                account_name="anonymous", update_params={"uid": uid_b, "gid": gid_b}
+            )
+        )
 
         # 6. Check that the uid and gid were updated
         _verify_anonymous_account(uid=uid_b, gid=gid_b)
 
         # 7. Update the anonymous account with a new user name
-        log.info(account_manager.anonymous.update(user=username_b))
+        log.info(
+            account_manager.update(
+                account_name="anonymous", update_params={"user": username_b}
+            )
+        )
 
         # 8. Check that the user name was updated
         _verify_anonymous_account(username=username_b)
 
         # 9. Delete the anonymous account
-        account_manager.anonymous.delete()
+        account_manager.delete(account_name="anonymous")
 
         # 10. Check that the anonymous account was deleted
-        assert (
-            not account_manager.anonymous.status()
-        ), "Anonymous account was not deleted"
+        with pytest.raises(AccountStatusQueryFailed) as ex:
+            account_manager.status(account_name="anonymous")
+            assert (
+                "NoSuchAccount" in str(ex.value),
+                f"Failed to verify account deletion: {ex.value}",
+            )
 
         # 11. Create an anonymous account by providing a user name
-        account_manager.anonymous.create(user=username_a)
+        account_manager.create_anonymous(user=username_a)
 
         # 12. Check that the created account has the provided user name
         _verify_anonymous_account(username=username_a)
@@ -143,7 +155,7 @@ class TestAnonymousAccess:
         anon_s3_client._boto3_client = anon_s3_client._boto3_resource.meta.client
 
         # 1. Setup an anonymous account via the NooBaa CLI
-        account_manager.anonymous.create(0, 0)
+        account_manager.create_anonymous(0, 0)
 
         # 2. Check that creating a bucket without credentials fails
         response = anon_s3_client.create_bucket(get_response=True)

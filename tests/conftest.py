@@ -12,7 +12,7 @@ from common_ci_utils.random_utils import (
 )
 from framework.ssh_connection_manager import SSHConnectionManager
 from noobaa_sa import constants
-from noobaa_sa.exceptions import AccountCreationFailed
+from noobaa_sa.exceptions import AccountDeletionFailed
 from noobaa_sa.factories import AccountFactory
 from noobaa_sa.bucket import BucketManager
 from framework import config
@@ -55,8 +55,8 @@ def account_manager_implementation(request, account_json=None):
         Make sure to delete the anonymous account
         """
         try:
-            acc_manager_instance.anonymous.delete()
-        except AccountCreationFailed as e:
+            acc_manager_instance.delete(account_name="anonymous")
+        except AccountDeletionFailed as e:
             log.warning(f"Failed to delete anonymous account: {e}")
 
     request.addfinalizer(cleanup)
