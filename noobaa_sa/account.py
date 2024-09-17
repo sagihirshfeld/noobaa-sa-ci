@@ -140,7 +140,7 @@ class NSFSAccount(Account):
         log.info(f"config root path: {config_root}")
         log.info("Adding account for NSFS deployment")
         cmd = f"sudo {self.manage_nsfs} account add --config_root {config_root} --from_file {account_file.name}"
-        retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountCreationFailed(
                 f"Creation of account failed with error {stdout}"
@@ -195,7 +195,7 @@ class NSFSAccount(Account):
             config_root = self.config_root
         log.info("Listing accounts for NSFS deployment")
         cmd = f"sudo {self.manage_nsfs} account list --config_root {config_root}"
-        retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
         log.info(stdout)
         if retcode != 0:
             raise AccountListFailed(f"Listing of accounts failed with error {stdout}")
@@ -220,7 +220,7 @@ class NSFSAccount(Account):
         else:
             cmd += f"--anonymous"
 
-        retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountDeletionFailed(f"Deleting account failed with error {stdout}")
 
@@ -252,7 +252,7 @@ class NSFSAccount(Account):
         if account_name != "anonymous":
             cmd += f" --config_root {config_root}"
 
-        retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountUpdateFailed(f"Updating account failed with error {stdout}")
 
@@ -278,7 +278,7 @@ class NSFSAccount(Account):
         else:
             cmd += " --anonymous"
 
-        retcode, stdout, stderr = self.conn.exec_cmd(cmd)
+        retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountStatusQueryFailed(
                 f"Getting account status failed with error {stdout}"
