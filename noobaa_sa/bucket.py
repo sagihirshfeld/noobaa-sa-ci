@@ -67,25 +67,30 @@ class BucketManager:
             raise e.BucketCreationFailed(f"Failed to create bucket {stderr}")
         log.info("Bucket created successfully")
 
-    def list(self, config_root=None):
+    def list(self, use_wide=False, config_root=None):
         """
         Lists Buckets
 
         Args:
+            use_wide (bool): Get more information about the buckets
             config_root (str): Path to config root
+
+        Returns:
+            list(str|dict): List of bucket names or dictionaries of bucket metadata if use_wide is True
         """
         if config_root is None:
             config_root = self.config_root
         log.info("Listing available buckets")
         cmd = f"{self.base_cmd} bucket list --config_root {config_root}"
+        cmd += " --wide" if use_wide else ""
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise e.BucketListFailed(f"Listing of buckets failed with error {stderr}")
         bucket_ls = json.loads(stdout)
         bucket_ls = bucket_ls["response"]["reply"]
-        bucket_list = [item["name"] for item in bucket_ls]
-        log.info(bucket_list)
-        return bucket_list
+        bucket_ls = bucket_ls if use_wide else [item["name"] for item in bucket_ls]
+        log.info(bucket_ls)
+        return bucket_ls
 
     def delete(
         self,

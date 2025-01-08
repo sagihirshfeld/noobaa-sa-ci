@@ -58,11 +58,16 @@ def account_manager_implementation(request, account_json=None):
         Make sure to delete the created account abd buckets
         """
         try:
+            # Delete all the accounts that were created by this fixture
             bucket_manager = BucketManager()
-            for bucket in bucket_manager.list():
-                bucket_manager.delete(bucket, force=True)
-            for acc in acc_manager_instance.list():
+            for acc in acc_manager_instance.accounts_created:
+                # Delete all the buckets that were created by this account
+                acc_id = acc_manager_instance.status(account_name=acc)["_id"]
+                for bucket in bucket_manager.list(use_wide=True):
+                    if bucket["owner_account"] == acc_id:
+                        bucket_manager.delete(bucket["name"], force=True)
                 acc_manager_instance.delete(account_name=acc)
+
             acc_manager_instance.delete(account_name="anonymous")
         except AccountDeletionFailed as e:
             log.warning(f"Failed to delete anonymous account: {e}")
@@ -388,4 +393,3 @@ def testsuite_properties(record_testsuite_property, pytestconfig):
         f"rp_launch_description",
         f"Job name:{noobaa_sa_rpm_name}\n{config.RUN.get('jenkins_build_url')}",
     )
-

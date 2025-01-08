@@ -64,6 +64,10 @@ class NSFSAccount(Account):
     Account operations for NSFS Deployment type
     """
 
+    def __init__(self, account_json):
+        super().__init__(account_json)
+        self.accounts_created = []
+
     def create(
         self,
         account_name="",
@@ -146,6 +150,10 @@ class NSFSAccount(Account):
                 f"Creation of account failed with error {stdout}"
             )
         log.info("Account created successfully")
+
+        # Keep track of the accounts created
+        self.accounts_created.append(account_name)
+
         return account_name, access_key, secret_key
 
     def create_anonymous(self, uid=None, gid=None, user=None):
@@ -228,6 +236,11 @@ class NSFSAccount(Account):
         retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountDeletionFailed(f"Deleting account failed with error {stdout}")
+        log.info("Account deleted successfully")
+
+        # Stop tracking the deleted account
+        if account_name in self.accounts_created:
+            self.accounts_created.remove(account_name)
 
     def update(self, account_name, update_params, config_root=None):
         """
@@ -260,6 +273,12 @@ class NSFSAccount(Account):
         retcode, stdout, _ = self.conn.exec_cmd(cmd)
         if retcode != 0:
             raise AccountUpdateFailed(f"Updating account failed with error {stdout}")
+        log.info("Account updated successfully")
+
+        # Update the account name for tracking if needed
+        if account_name in self.accounts_created and "new_name" in update_params.keys():
+            original_acc_ind = self.accounts_created.index(account_name)
+            self.accounts_created[original_acc_ind] = update_params["new_name"]
 
     def status(self, account_name, config_root=None):
         """
