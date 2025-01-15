@@ -191,6 +191,9 @@ class NSFSAccount(Account):
             )
         log.info("Anonymous account created successfully")
 
+        # Track for cleanup
+        self.accounts_created.append("anonymous")
+
     def list(self, config_root=None):
         """
         Lists accounts
