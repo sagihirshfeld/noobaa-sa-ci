@@ -165,6 +165,7 @@ class TestBucketPolicies:
     def test_operation_access_policies(
         self,
         c_scope_s3client,
+        account_manager,
         s3_client_factory,
         tested_op,
         access_effect,
@@ -183,7 +184,12 @@ class TestBucketPolicies:
         bucket = c_scope_s3client.create_bucket()
 
         # 2. Create a new account
-        new_acc_client = s3_client_factory()
+        other_acc_name, other_acc_access_key, other_acc_secret_key = (
+            account_manager.create()
+        )
+        new_acc_client = s3_client_factory(
+            access_and_secret_keys_tuple=(other_acc_access_key, other_acc_secret_key)
+        )
 
         # 3. Apply a policy that allows or denies only the tested operation to the new account
         bpb = BucketPolicyBuilder()
@@ -205,7 +211,7 @@ class TestBucketPolicies:
         # Finish building the policy for the tested operation
         bpb = (
             bpb.add_action(tested_op)
-            .add_principal("*")
+            .add_principal(other_acc_name)
             .add_resource(
                 bucket if tested_op in constants.BUCKET_OPERATIONS else f"{bucket}/*"
             )
