@@ -60,7 +60,7 @@ class BucketManager:
                 "new_buckets_path"
             ]
         if "custom_fs_backend" in kwargs:
-            extra_param = f"fs_backend = {kwargs.get('custom_fs_backend')} "
+            extra_param = f"--fs_backend={kwargs.get('custom_fs_backend')} "
         cmd = f"{self.base_cmd} bucket add --config_root {config_root} --name {bucket_name} --owner {account_owner} --path {bucket_path} {extra_param} {self.unwanted_log}"
         retcode, stdout, stderr = self.conn.exec_cmd(cmd)
         if retcode != 0:
