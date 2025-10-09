@@ -117,6 +117,50 @@ class S3Client:
         response_dict = self._exec_boto3_method("delete_bucket", Bucket=bucket_name)
         return response_dict
 
+    def get_bucket_cors(self, bucket_name):
+        """
+        Returns CORS config associated with bucket using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket
+
+            Returns:
+                dict: A dictionary containing the response from the get_bucket_cors call.
+        """
+        log.info("Getting CORS config of the bucket")
+        response_dict = self._exec_boto3_method("get_bucket_cors", Bucket=bucket_name)
+        return response_dict
+
+    def delete_bucket_cors(self, bucket_name):
+        """
+        Returns responce of deleted CORS config of the associated bucket using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket
+
+            Returns:
+                dict: A dictionary containing the response from the delete_bucket_cors call.
+        """
+        log.info("Getting CORS config of the bucket")
+        response_dict = self._exec_boto3_method("delete_bucket_cors", Bucket=bucket_name)
+        return response_dict
+
+    def put_bucket_cors(self, bucket_name, cors_config):
+        """
+        Returns CORS config associated with bucket using boto3
+
+        Args:
+            bucket_name (str): The name of the bucket
+            cors_config (Dict): CORS config which needs to be set on bucket
+
+            Returns:
+                dict: A dictionary containing the response from the put_bucket_cors call.
+        """
+        log.info("Setting CORS config on the bucket")
+        response_dict = self._exec_boto3_method("put_bucket_cors", Bucket=bucket_name, CORSConfiguration=cors_config)
+        return response_dict
+
+
     def head_bucket(self, bucket_name):
         """
         Check if a bucket exists in an S3 account using boto3
